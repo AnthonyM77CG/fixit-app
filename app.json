@@ -2,7 +2,6 @@
   "expo": {
     "name": "fixit-app",
     "slug": "fixit-app",
-    "scheme": "fixitapp",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -21,16 +20,10 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true,
-      "package": "com.anonymous.fixitapp"
+      "edgeToEdgeEnabled": true
     },
     "web": {
-      "favicon": "./assets/favicon.png",
-      "bundler": "metro"
-    },
-    "plugins": [
-      "expo-router",
-      "expo-secure-store"
-    ]
+      "favicon": "./assets/favicon.png"
+    }
   }
 }
