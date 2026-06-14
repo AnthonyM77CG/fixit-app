@@ -1,14 +1,6 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import * as SecureStore from 'expo-secure-store';
-
-interface Usuario {
-  token: string;
-  nombre: string;
-  apellido: string;
-  correo: string;
-  rol: string;
-  area: string;
-}
+import React, { createContext, useContext, useEffect, useState } from "react";
+import * as SecureStore from "expo-secure-store";
+import { Usuario } from "../models/usuario.model";
 
 interface AuthContextType {
   usuario: Usuario | null;
@@ -29,24 +21,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const cargarSesion = async () => {
     try {
-      const data = await SecureStore.getItemAsync('usuario');
+      const data = await SecureStore.getItemAsync("usuario");
       if (data) setUsuario(JSON.parse(data));
-    } catch (_) {}
-    finally { setCargando(false); }
+    } catch (_) {
+    } finally {
+      setCargando(false);
+    }
   };
 
   const guardarSesion = async (data: Usuario) => {
-    await SecureStore.setItemAsync('usuario', JSON.stringify(data));
+    await SecureStore.setItemAsync("usuario", JSON.stringify(data));
     setUsuario(data);
   };
 
   const cerrarSesion = async () => {
-    await SecureStore.deleteItemAsync('usuario');
+    await SecureStore.deleteItemAsync("usuario");
     setUsuario(null);
   };
 
   return (
-    <AuthContext.Provider value={{ usuario, cargando, guardarSesion, cerrarSesion }}>
+    <AuthContext.Provider
+      value={{ usuario, cargando, guardarSesion, cerrarSesion }}
+    >
       {children}
     </AuthContext.Provider>
   );
