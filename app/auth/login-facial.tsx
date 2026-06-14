@@ -8,9 +8,10 @@ import {
   ActivityIndicator,
   Dimensions,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context"; // Asegura que no choque con notches ni barras de botones
+import { SafeAreaView } from "react-native-safe-area-context";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../../src/context/AuthContext";
 import { authService } from "../../src/services/auth.service";
 
@@ -23,24 +24,44 @@ export default function LoginFaceScreen() {
   const [permission, requestPermission] = useCameraPermissions();
   const [cargando, setCargando] = useState(false);
 
-  if (!permission) return <View style={styles.containerFondo} />;
+  if (!permission)
+    return <View style={{ flex: 1, backgroundColor: "#f3f4f6" }} />;
 
   if (!permission.granted) {
     return (
-      <SafeAreaView style={styles.containerPermisos}>
-        <View style={styles.cardPermisos}>
-          <Text style={styles.iconoSeguridad}>🔒</Text>
-          <Text style={styles.tituloPermisos}>Acceso Requerido</Text>
-          <Text style={styles.textoPermisos}>
-            Para iniciar sesión mediante reconocimiento facial, necesitamos
-            permiso para utilizar la cámara frontal.
-          </Text>
+      <SafeAreaView style={styles.permisoContainer}>
+        {/* Header */}
+        <View style={styles.header}>
           <TouchableOpacity
-            style={styles.botonPermiso}
-            onPress={requestPermission}
+            onPress={() =>
+              router.canGoBack()
+                ? router.back()
+                : router.replace("/auth/metodo-login")
+            }
+            style={styles.botonVolver}
           >
-            <Text style={styles.botonTexto}>Conceder Permiso</Text>
+            <Ionicons name="arrow-back" size={20} color="#374151" />
+            <Text style={styles.botonVolverTexto}>Volver</Text>
           </TouchableOpacity>
+          <Text style={styles.headerTitulo}>Reconocimiento Facial</Text>
+          <View style={{ width: 80 }} />
+        </View>
+
+        <View style={styles.permisoContenido}>
+          <View style={styles.permisoCard}>
+            <Ionicons name="camera-outline" size={48} color="#16a34a" />
+            <Text style={styles.permisoTitulo}>Acceso Requerido</Text>
+            <Text style={styles.permisoTexto}>
+              Para iniciar sesión mediante reconocimiento facial necesitamos
+              permiso para usar la cámara frontal.
+            </Text>
+            <TouchableOpacity
+              style={styles.botonPermiso}
+              onPress={requestPermission}
+            >
+              <Text style={styles.botonPermisoTexto}>Conceder Permiso</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </SafeAreaView>
     );
@@ -54,7 +75,6 @@ export default function LoginFaceScreen() {
         base64: true,
         quality: 0.6,
       });
-
       let base64 = foto.base64 ?? "";
       if (base64.includes(",")) base64 = base64.split(",")[1];
 
@@ -65,7 +85,7 @@ export default function LoginFaceScreen() {
         if (e.response?.status === 400) {
           Alert.alert(
             "⚠️ Sin rostro detectado",
-            "No se detectó ningún rostro. Asegúrate de centrar tu cara en la cámara e intenta de nuevo.",
+            "No se detectó ningún rostro. Centra tu cara e intenta de nuevo.",
           );
           return;
         }
@@ -95,9 +115,6 @@ export default function LoginFaceScreen() {
           router.replace("/auth/metodo-login");
       }
     } catch (e: any) {
-      console.log("Error status:", e.response?.status);
-      console.log("Error data:", JSON.stringify(e.response?.data));
-      console.log("Error message:", e.message);
       Alert.alert(
         "Error",
         "Ocurrió un problema al procesar la imagen. Intenta de nuevo.",
@@ -109,23 +126,37 @@ export default function LoginFaceScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Vista de la cámara que ocupa todo el fondo */}
+      {/* Cámara de fondo */}
       <CameraView
         ref={cameraRef}
         facing="front"
         style={StyleSheet.absoluteFillObject}
       />
 
-      {/* Capa decorativa: Máscara de enfoque simulada para el rostro */}
-      <View style={styles.overlayContenedor} pointerEvents="none">
+      {/* Overlay con guía de rostro */}
+      <View style={styles.overlay} pointerEvents="none">
         <View style={styles.guiaRostro} />
         <Text style={styles.textoInstruccion}>
           Coloca tu rostro dentro del recuadro
         </Text>
       </View>
 
-      {/* Controles e Interfaz de usuario protegida por SafeAreaView */}
+      {/* Controles */}
       <SafeAreaView style={styles.interfaceOverlay}>
+        {/* Botón volver arriba */}
+        <TouchableOpacity
+          style={styles.botonVolverOverlay}
+          onPress={() =>
+            router.canGoBack()
+              ? router.back()
+              : router.replace("/auth/metodo-login")
+          }
+        >
+          <Ionicons name="arrow-back" size={20} color="#fff" />
+          <Text style={styles.botonVolverOverlayTexto}>Volver</Text>
+        </TouchableOpacity>
+
+        {/* Botón captura abajo */}
         <View style={styles.controlesInferiores}>
           <TouchableOpacity
             style={[styles.botonCaptura, cargando && styles.botonDesactivado]}
@@ -135,21 +166,13 @@ export default function LoginFaceScreen() {
             {cargando ? (
               <ActivityIndicator size="large" color="#fff" />
             ) : (
-              <Text style={styles.botonTexto}>Iniciar Reconocimiento</Text>
+              <>
+                <Ionicons name="scan-outline" size={22} color="#fff" />
+                <Text style={styles.botonCapturaTexto}>
+                  Iniciar Reconocimiento
+                </Text>
+              </>
             )}
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.botonVolver}
-            onPress={() => {
-              if (router.canGoBack()) {
-                router.back();
-              } else {
-                router.replace("auth/metodo-login");
-              }
-            }}
-          >
-            <Text style={styles.link}>← Volver al método de login</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -158,27 +181,20 @@ export default function LoginFaceScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#000",
-  },
-  containerFondo: {
-    flex: 1,
-    backgroundColor: "#121212",
-  },
-  // Capa para centrar la guía de escaneo
-  overlayContenedor: {
+  // Pantalla de cámara
+  container: { flex: 1, backgroundColor: "#000" },
+  overlay: {
     ...StyleSheet.absoluteFillObject,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "rgba(0,0,0,0.3)", // Oscurece sutilmente la cámara para dar contraste
+    backgroundColor: "rgba(0,0,0,0.35)",
   },
   guiaRostro: {
     width: width * 0.7,
     height: width * 0.9,
     borderWidth: 2,
-    borderColor: "#007AFF", // Color azul tecnológico
-    borderRadius: 150, // Forma ovalada para simular contorno facial
+    borderColor: "#16a34a", // ✅ verde en vez de azul
+    borderRadius: 150,
     borderStyle: "dashed",
     backgroundColor: "transparent",
     marginBottom: 20,
@@ -188,95 +204,99 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "500",
     textAlign: "center",
-    textShadowColor: "rgba(0, 0, 0, 0.75)",
+    textShadowColor: "rgba(0,0,0,0.75)",
     textShadowOffset: { width: -1, height: 1 },
     textShadowRadius: 10,
   },
-  // Contenedor UI flotante encima de la cámara
-  interfaceOverlay: {
-    flex: 1,
-    justifyContent: "flex-end", // Todo el contenido se empuja hacia abajo de forma segura
-  },
-  controlesInferiores: {
-    paddingHorizontal: 24,
-    paddingBottom: 10, // Ajuste extra fino para pantallas sin notch inferior
-  },
-  botonCaptura: {
-    height: 56,
-    backgroundColor: "#007AFF",
-    borderRadius: 16,
-    justifyContent: "center",
+  interfaceOverlay: { flex: 1, justifyContent: "space-between" },
+  botonVolverOverlay: {
+    flexDirection: "row",
     alignItems: "center",
+    gap: 6,
+    margin: 16,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    backgroundColor: "rgba(0,0,0,0.4)",
+    borderRadius: 20,
+    alignSelf: "flex-start",
+  },
+  botonVolverOverlayTexto: { color: "#fff", fontSize: 14, fontWeight: "600" },
+  controlesInferiores: { paddingHorizontal: 24, paddingBottom: 16 },
+  botonCaptura: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    height: 56,
+    backgroundColor: "#16a34a", // ✅ verde
+    borderRadius: 16,
+    gap: 8,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 4,
     elevation: 5,
   },
-  botonDesactivado: {
-    backgroundColor: "#333",
-  },
-  botonTexto: {
+  botonDesactivado: { backgroundColor: "rgba(0,0,0,0.5)" },
+  botonCapturaTexto: {
     color: "#fff",
     fontSize: 16,
     fontWeight: "700",
     letterSpacing: 0.5,
   },
-  botonVolver: {
-    marginTop: 16,
-    paddingVertical: 12,
+
+  // Pantalla de permisos
+  permisoContainer: { flex: 1, backgroundColor: "#f3f4f6" },
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
     alignItems: "center",
-    justifyContent: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: "#fff",
+    borderBottomWidth: 1,
+    borderBottomColor: "#e5e7eb",
   },
-  link: {
-    color: "rgba(255, 255, 255, 0.8)",
-    fontSize: 14,
-    fontWeight: "600",
-    textDecorationLine: "underline",
+  botonVolver: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    width: 80,
   },
-  // Estilos para la pantalla de solicitud de permisos
-  containerPermisos: {
+  botonVolverTexto: { fontSize: 15, color: "#374151", fontWeight: "500" },
+  headerTitulo: { fontSize: 17, fontWeight: "700", color: "#111827" },
+  permisoContenido: {
     flex: 1,
-    backgroundColor: "#121212",
     justifyContent: "center",
     alignItems: "center",
     padding: 24,
   },
-  cardPermisos: {
-    backgroundColor: "#1E1E1E",
-    borderRadius: 24,
+  permisoCard: {
+    backgroundColor: "#fff",
+    borderRadius: 20,
     padding: 32,
     alignItems: "center",
     width: "100%",
+    gap: 12,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.25,
-    shadowRadius: 15,
-    elevation: 10,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 3,
   },
-  iconoSeguridad: {
-    fontSize: 50,
-    marginBottom: 16,
-  },
-  tituloPermisos: {
-    color: "#fff",
-    fontSize: 22,
-    fontWeight: "700",
-    marginBottom: 12,
-  },
-  textoPermisos: {
-    color: "#aaa",
+  permisoTitulo: { fontSize: 20, fontWeight: "700", color: "#111827" },
+  permisoTexto: {
     fontSize: 14,
+    color: "#6b7280",
     textAlign: "center",
     lineHeight: 20,
-    marginBottom: 24,
   },
   botonPermiso: {
-    backgroundColor: "#007AFF",
+    backgroundColor: "#16a34a",
     paddingVertical: 14,
-    paddingHorizontal: 32,
     borderRadius: 12,
     width: "100%",
     alignItems: "center",
+    marginTop: 8,
   },
+  botonPermisoTexto: { color: "#fff", fontSize: 15, fontWeight: "700" },
 });

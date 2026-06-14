@@ -11,8 +11,9 @@ import {
   Platform,
   ScrollView,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context"; // Evita colisiones con barras del sistema
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../../src/context/AuthContext";
 import { authService } from "../../src/services/auth.service";
 
@@ -22,16 +23,15 @@ export default function LoginCorreoScreen() {
   const [correo, setCorreo] = useState("");
   const [contraseña, setContraseña] = useState("");
   const [cargando, setCargando] = useState(false);
-
-  // Estados para controlar el color del borde cuando el usuario interactúa con los inputs
   const [isCorreoFocused, setIsCorreoFocused] = useState(false);
   const [isPassFocused, setIsPassFocused] = useState(false);
+  const [verContraseña, setVerContraseña] = useState(false);
 
   const handleLogin = async () => {
     if (!correo || !contraseña) {
       Alert.alert(
         "Campos Incompletos",
-        "Por favor, completa todos los campos para continuar.",
+        "Por favor, completa todos los campos.",
       );
       return;
     }
@@ -65,19 +65,35 @@ export default function LoginCorreoScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* KeyboardAvoidingView evita que el teclado del celular tape los inputs o el botón */}
+      {/* Header fijo */}
+      <View style={styles.header}>
+        <TouchableOpacity
+          onPress={() =>
+            router.canGoBack()
+              ? router.back()
+              : router.replace("/auth/metodo-login")
+          }
+          style={styles.botonVolver}
+        >
+          <Ionicons name="arrow-back" size={20} color="#374151" />
+          <Text style={styles.botonVolverTexto}>Volver</Text>
+        </TouchableOpacity>
+        <Text style={styles.headerTitulo}>Iniciar Sesión</Text>
+        <View style={{ width: 80 }} />
+      </View>
+
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={{ flex: 1 }}
       >
         <ScrollView
-          contentContainerStyle={styles.scrollContainer}
+          contentContainerStyle={styles.scroll}
           keyboardShouldPersistTaps="handled"
         >
-          {/* Encabezado e Ícono */}
-          <View style={styles.headerContainer}>
-            <View style={styles.logoBadge}>
-              <Text style={styles.logoIcon}>👤</Text>
+          {/* Ícono y título */}
+          <View style={styles.brandingContainer}>
+            <View style={styles.iconoContainer}>
+              <Ionicons name="person-outline" size={40} color="#16a34a" />
             </View>
             <Text style={styles.titulo}>Bienvenido de nuevo</Text>
             <Text style={styles.subtitulo}>
@@ -86,59 +102,66 @@ export default function LoginCorreoScreen() {
           </View>
 
           {/* Formulario */}
-          <View style={styles.formContainer}>
+          <View style={styles.card}>
+            {/* Correo */}
             <Text style={styles.label}>Correo Electrónico</Text>
             <TextInput
               style={[styles.input, isCorreoFocused && styles.inputFocused]}
               placeholder="ejemplo@correo.com"
-              placeholderTextColor="#555"
+              placeholderTextColor="#9ca3af"
               value={correo}
               onChangeText={setCorreo}
               keyboardType="email-address"
               autoCapitalize="none"
               onFocus={() => setIsCorreoFocused(true)}
               onBlur={() => setIsCorreoFocused(false)}
+              editable={!cargando}
             />
 
+            {/* Contraseña */}
             <Text style={styles.label}>Contraseña</Text>
-            <TextInput
-              style={[styles.input, isPassFocused && styles.inputFocused]}
-              placeholder="••••••••••••"
-              placeholderTextColor="#555"
-              value={contraseña}
-              onChangeText={setContraseña}
-              secureTextEntry
-              onFocus={() => setIsPassFocused(true)}
-              onBlur={() => setIsPassFocused(false)}
-            />
+            <View
+              style={[
+                styles.inputContainer,
+                isPassFocused && styles.inputFocused,
+              ]}
+            >
+              <TextInput
+                style={styles.inputContraseña}
+                placeholder="••••••••••••"
+                placeholderTextColor="#9ca3af"
+                value={contraseña}
+                onChangeText={setContraseña}
+                secureTextEntry={!verContraseña}
+                onFocus={() => setIsPassFocused(true)}
+                onBlur={() => setIsPassFocused(false)}
+                editable={!cargando}
+              />
+              <TouchableOpacity
+                style={styles.ojoBton}
+                onPress={() => setVerContraseña(!verContraseña)}
+              >
+                <Ionicons
+                  name={verContraseña ? "eye-off-outline" : "eye-outline"}
+                  size={20}
+                  color="#9ca3af"
+                />
+              </TouchableOpacity>
+            </View>
 
-            {/* Botón de Acción Principal */}
+            {/* Botón */}
             <TouchableOpacity
               style={[styles.boton, cargando && styles.botonDesactivado]}
               onPress={handleLogin}
               disabled={cargando}
             >
               {cargando ? (
-                <ActivityIndicator size="small" color="#fff" />
+                <ActivityIndicator color="#fff" />
               ) : (
                 <Text style={styles.botonTexto}>Iniciar Sesión</Text>
               )}
             </TouchableOpacity>
           </View>
-
-          {/* Botón Volver Sólido y Protegido */}
-          <TouchableOpacity
-            style={styles.botonVolver}
-            onPress={() => {
-              if (router.canGoBack()) {
-                router.back();
-              } else {
-                router.replace("auth/metodo-login");
-              }
-            }}
-          >
-            <Text style={styles.link}>← Volver al método de login</Text>
-          </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -146,113 +169,117 @@ export default function LoginCorreoScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#121212", // Fondo oscuro premium combinando con la pantalla facial
+  container: { flex: 1, backgroundColor: "#f3f4f6" },
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: "#fff",
+    borderBottomWidth: 1,
+    borderBottomColor: "#e5e7eb",
   },
-  scrollContainer: {
+  botonVolver: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    width: 80,
+  },
+  botonVolverTexto: { fontSize: 15, color: "#374151", fontWeight: "500" },
+  headerTitulo: { fontSize: 17, fontWeight: "700", color: "#111827" },
+  scroll: {
     flexGrow: 1,
     justifyContent: "center",
     paddingHorizontal: 24,
-    paddingVertical: 20,
+    paddingVertical: 32,
+    gap: 24,
   },
-  headerContainer: {
-    alignItems: "center",
-    marginBottom: 40,
-  },
-  logoBadge: {
-    width: 70,
-    height: 70,
-    borderRadius: 20,
-    backgroundColor: "#1E1E1E",
+  brandingContainer: { alignItems: "center", gap: 8 },
+  iconoContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 24,
+    backgroundColor: "#f0fdf4",
+    borderWidth: 1,
+    borderColor: "#bbf7d0",
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: "#333",
-  },
-  logoIcon: {
-    fontSize: 32,
   },
   titulo: {
-    fontSize: 26,
+    fontSize: 24,
     fontWeight: "800",
-    color: "#fff",
+    color: "#111827",
     textAlign: "center",
-    letterSpacing: 0.5,
   },
-  subtitulo: {
-    fontSize: 14,
-    color: "#aaa",
-    textAlign: "center",
-    marginTop: 6,
-  },
-  formContainer: {
-    width: "100%",
-    backgroundColor: "#1E1E1E", // Contenedor tipo tarjeta para el formulario
-    borderRadius: 24,
+  subtitulo: { fontSize: 14, color: "#6b7280", textAlign: "center" },
+  card: {
+    backgroundColor: "#fff",
+    borderRadius: 20,
     padding: 24,
     borderWidth: 1,
-    borderColor: "#2a2a2a",
+    borderColor: "#e5e7eb",
+    gap: 8,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.2,
-    shadowRadius: 10,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 4,
   },
   label: {
-    color: "#ccc",
-    fontSize: 13,
-    fontWeight: "600",
-    marginBottom: 8,
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#374151",
     textTransform: "uppercase",
     letterSpacing: 0.5,
   },
   input: {
-    backgroundColor: "#121212",
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontSize: 16,
-    marginBottom: 20,
+    backgroundColor: "#f9fafb",
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+    fontSize: 15,
+    marginBottom: 8,
     borderWidth: 1.5,
-    borderColor: "#333",
-    color: "#fff",
+    borderColor: "#e5e7eb",
+    color: "#111827",
   },
-  inputFocused: {
-    borderColor: "#007AFF", // El borde se ilumina de azul al seleccionarlo
+  inputContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#f9fafb",
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: "#e5e7eb",
+    marginBottom: 8,
   },
+  inputContraseña: {
+    flex: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+    fontSize: 15,
+    color: "#111827",
+  },
+  ojoBton: { paddingHorizontal: 14, paddingVertical: 13 },
+  inputFocused: { borderColor: "#16a34a" },
   boton: {
-    backgroundColor: "#007AFF",
-    borderRadius: 14,
+    backgroundColor: "#16a34a",
+    borderRadius: 12,
     height: 54,
     justifyContent: "center",
     alignItems: "center",
-    marginTop: 10,
-    shadowColor: "#007AFF",
+    marginTop: 8,
+    shadowColor: "#16a34a",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 5,
     elevation: 4,
   },
-  botonDesactivado: {
-    backgroundColor: "#333",
-  },
+  botonDesactivado: { backgroundColor: "#9ca3af" },
   botonTexto: {
     color: "#fff",
     fontSize: 16,
     fontWeight: "700",
     letterSpacing: 0.5,
-  },
-  botonVolver: {
-    marginTop: 24,
-    paddingVertical: 12,
-    alignItems: "center",
-  },
-  link: {
-    color: "rgba(255, 255, 255, 0.6)",
-    fontSize: 14,
-    fontWeight: "600",
-    textDecorationLine: "underline",
   },
 });

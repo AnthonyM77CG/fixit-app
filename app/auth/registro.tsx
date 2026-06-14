@@ -16,6 +16,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Picker } from "@react-native-picker/picker";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
 import { Rol } from "../../src/models/rol.model";
 import { Area } from "../../src/models/area.model";
 import { rolService } from "../../src/services/rol.service";
@@ -33,9 +34,8 @@ export default function RegisterScreen() {
   const [imagenBase64, setImagenBase64] = useState("");
   const [roles, setRoles] = useState<Rol[]>([]);
   const [areas, setAreas] = useState<Area[]>([]);
-
-  // Estados independientes para el foco de los bordes de los inputs
   const [focusedField, setFocusedField] = useState<string | null>(null);
+  const [verContraseña, setVerContraseña] = useState(false);
 
   const [form, setForm] = useState({
     nombre: "",
@@ -43,8 +43,8 @@ export default function RegisterScreen() {
     correo: "",
     contraseña: "",
     celular: "",
-    roleId: 0, // Inicia en 0 (Placeholder activo)
-    areaId: 0, // Inicia en 0 (Placeholder activo)
+    roleId: 0,
+    areaId: 0,
   });
 
   useEffect(() => {
@@ -60,9 +60,6 @@ export default function RegisterScreen() {
       setRoles(rolesData);
       setAreas(areasData);
     } catch (e: any) {
-      console.log("Error status:", e.response?.status);
-      console.log("Error data:", JSON.stringify(e.response?.data));
-      console.log("Error message:", e.message);
       Alert.alert(
         "Error del Servidor",
         "No se pudieron cargar los catálogos de Roles y Áreas.",
@@ -77,10 +74,8 @@ export default function RegisterScreen() {
         base64: true,
         quality: 0.7,
       });
-
       let base64 = foto.base64 ?? "";
       if (base64.includes(",")) base64 = base64.split(",")[1];
-
       setCargando(true);
 
       let resultado;
@@ -90,7 +85,7 @@ export default function RegisterScreen() {
         if (e.response?.status === 400) {
           Alert.alert(
             "⚠️ Sin rostro detectado",
-            "No se detectó ningún rostro en la foto. Asegúrate de centrar tu cara en la cámara e intenta de nuevo.",
+            "No se detectó ningún rostro. Centra tu cara e intenta de nuevo.",
           );
           return;
         }
@@ -100,7 +95,7 @@ export default function RegisterScreen() {
       if (resultado.caraExistente) {
         Alert.alert(
           "⚠️ Cara ya registrada",
-          "Esta cara ya tiene una cuenta en el sistema. Intenta iniciar sesión.",
+          "Esta cara ya tiene una cuenta. Intenta iniciar sesión.",
         );
         return;
       }
@@ -108,10 +103,7 @@ export default function RegisterScreen() {
       setImagenBase64(base64);
       setFotoTomada(true);
     } catch (e: any) {
-      Alert.alert(
-        "Error",
-        "Ocurrió un problema al procesar la imagen. Intenta de nuevo.",
-      );
+      Alert.alert("Error", "Ocurrió un problema al procesar la imagen.");
     } finally {
       setCargando(false);
     }
@@ -125,37 +117,25 @@ export default function RegisterScreen() {
       !form.contraseña ||
       !form.celular
     ) {
-      Alert.alert(
-        "Campos Vacíos",
-        "Por favor, rellena todos los campos de texto.",
-      );
+      Alert.alert("Campos Vacíos", "Por favor, rellena todos los campos.");
       return;
     }
     if (form.celular.length !== 9) {
-      Alert.alert(
-        "Validación",
-        "El número de celular debe contener exactamente 9 dígitos.",
-      );
+      Alert.alert("Validación", "El celular debe tener exactamente 9 dígitos.");
       return;
     }
     if (form.roleId === 0) {
-      Alert.alert(
-        "Validación",
-        "Por favor, seleccione un rol funcional válido.",
-      );
+      Alert.alert("Validación", "Selecciona un rol funcional.");
       return;
     }
     if (form.areaId === 0) {
-      Alert.alert(
-        "Validación",
-        "Por favor, seleccione un área de trabajo válida.",
-      );
+      Alert.alert("Validación", "Selecciona un área de trabajo.");
       return;
     }
     if (!imagenBase64) {
       Alert.alert(
         "Biometría Requerida",
-        "Es obligatorio registrar tu rostro para completar el alta.",
+        "Debes registrar tu rostro para completar el registro.",
       );
       return;
     }
@@ -185,46 +165,75 @@ export default function RegisterScreen() {
 
   if (!permission?.granted) {
     return (
-      <SafeAreaView style={styles.containerPermisos}>
-        <View style={styles.cardPermisos}>
-          <Text style={styles.iconoSeguridad}>📸</Text>
-          <Text style={styles.tituloPermisos}>Acceso a la Cámara</Text>
-          <Text style={styles.textoPermisos}>
-            Para registrar tu perfil biométrico de reconocimiento facial,
-            necesitamos acceso a tu cámara frontal.
-          </Text>
+      <SafeAreaView style={styles.container}>
+        <View style={styles.header}>
           <TouchableOpacity
-            style={styles.botonPermiso}
-            onPress={requestPermission}
+            onPress={() =>
+              router.canGoBack()
+                ? router.back()
+                : router.replace("/auth/metodo-login")
+            }
+            style={styles.botonVolver}
           >
-            <Text style={styles.botonTexto}>Conceder Permiso</Text>
+            <Ionicons name="arrow-back" size={20} color="#374151" />
+            <Text style={styles.botonVolverTexto}>Volver</Text>
           </TouchableOpacity>
+          <Text style={styles.headerTitulo}>Crear Cuenta</Text>
+          <View style={{ width: 80 }} />
+        </View>
+        <View style={styles.permisoContenido}>
+          <View style={styles.permisoCard}>
+            <Ionicons name="camera-outline" size={48} color="#16a34a" />
+            <Text style={styles.permisoTitulo}>Acceso a la Cámara</Text>
+            <Text style={styles.permisoTexto}>
+              Para registrar tu perfil biométrico necesitamos acceso a tu cámara
+              frontal.
+            </Text>
+            <TouchableOpacity
+              style={styles.botonPermiso}
+              onPress={requestPermission}
+            >
+              <Text style={styles.botonPermisoTexto}>Conceder Permiso</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={styles.containerPrincipal}>
+    <SafeAreaView style={styles.container}>
+      {/* Header fijo */}
+      <View style={styles.header}>
+        <TouchableOpacity
+          onPress={() =>
+            router.canGoBack()
+              ? router.back()
+              : router.replace("/auth/metodo-login")
+          }
+          style={styles.botonVolver}
+        >
+          <Ionicons name="arrow-back" size={20} color="#374151" />
+          <Text style={styles.botonVolverTexto}>Volver</Text>
+        </TouchableOpacity>
+        <Text style={styles.headerTitulo}>Crear Cuenta</Text>
+        <View style={{ width: 80 }} />
+      </View>
+
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={{ flex: 1 }}
       >
         <ScrollView
-          style={styles.scroll}
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={styles.scroll}
           keyboardShouldPersistTaps="handled"
         >
-          {/* Cabecera */}
-          <View style={styles.headerContainer}>
-            <Text style={styles.titulo}>Crear Cuenta</Text>
-            <Text style={styles.subtitulo}>
-              Registra tus datos y vincula tu rostro
-            </Text>
-          </View>
+          <Text style={styles.subtitulo}>
+            Registra tus datos y vincula tu rostro
+          </Text>
 
-          {/* Sección de la Cámara / Foto */}
-          <View style={styles.cardSeccion}>
+          {/* Verificación Biométrica */}
+          <View style={styles.card}>
             <Text style={styles.labelSeccion}>Verificación Biométrica</Text>
             {!fotoTomada ? (
               <View style={styles.cameraWrapper}>
@@ -241,31 +250,37 @@ export default function RegisterScreen() {
                   onPress={tomarFoto}
                   disabled={cargando}
                 >
-                  <Text style={styles.botonTextoFoto}>Capturar Rostro</Text>
+                  {cargando ? (
+                    <ActivityIndicator color="#374151" size="small" />
+                  ) : (
+                    <Text style={styles.botonFotoTexto}>Capturar Rostro</Text>
+                  )}
                 </TouchableOpacity>
               </View>
             ) : (
               <View style={styles.fotoOkContainer}>
-                <Text style={styles.fotoOkIcono}>⚡</Text>
+                <Ionicons name="checkmark-circle" size={36} color="#16a34a" />
                 <Text style={styles.fotoOkTexto}>
                   Rostro enlazado correctamente
                 </Text>
                 <TouchableOpacity
-                  style={styles.botonReintentarFoto}
+                  style={styles.botonReintentar}
                   onPress={() => {
                     setFotoTomada(false);
                     setImagenBase64("");
                   }}
                   disabled={cargando}
                 >
-                  <Text style={styles.linkReintentar}>Volver a capturar</Text>
+                  <Text style={styles.botonReintentarTexto}>
+                    Volver a capturar
+                  </Text>
                 </TouchableOpacity>
               </View>
             )}
           </View>
 
-          {/* Sección de Datos Personales */}
-          <View style={styles.cardSeccion}>
+          {/* Información Personal */}
+          <View style={styles.card}>
             <Text style={styles.labelSeccion}>Información Personal</Text>
 
             <TextInput
@@ -274,9 +289,10 @@ export default function RegisterScreen() {
                 focusedField === "nombre" && styles.inputFocused,
               ]}
               placeholder="Nombre"
-              placeholderTextColor="#555"
+              placeholderTextColor="#9ca3af"
               value={form.nombre}
               onChangeText={(v) => setForm({ ...form, nombre: v })}
+              autoCapitalize="words"
               onFocus={() => setFocusedField("nombre")}
               onBlur={() => setFocusedField(null)}
               editable={!cargando}
@@ -288,9 +304,10 @@ export default function RegisterScreen() {
                 focusedField === "apellido" && styles.inputFocused,
               ]}
               placeholder="Apellido"
-              placeholderTextColor="#555"
+              placeholderTextColor="#9ca3af"
               value={form.apellido}
               onChangeText={(v) => setForm({ ...form, apellido: v })}
+              autoCapitalize="words"
               onFocus={() => setFocusedField("apellido")}
               onBlur={() => setFocusedField(null)}
               editable={!cargando}
@@ -302,7 +319,7 @@ export default function RegisterScreen() {
                 focusedField === "correo" && styles.inputFocused,
               ]}
               placeholder="Correo electrónico"
-              placeholderTextColor="#555"
+              placeholderTextColor="#9ca3af"
               value={form.correo}
               onChangeText={(v) => setForm({ ...form, correo: v })}
               keyboardType="email-address"
@@ -312,28 +329,44 @@ export default function RegisterScreen() {
               editable={!cargando}
             />
 
-            <TextInput
+            {/* Contraseña con ojo */}
+            <View
               style={[
-                styles.input,
+                styles.inputContraseñaContainer,
                 focusedField === "contraseña" && styles.inputFocused,
               ]}
-              placeholder="Contraseña"
-              placeholderTextColor="#555"
-              value={form.contraseña}
-              onChangeText={(v) => setForm({ ...form, contraseña: v })}
-              secureTextEntry
-              onFocus={() => setFocusedField("contraseña")}
-              onBlur={() => setFocusedField(null)}
-              editable={!cargando}
-            />
+            >
+              <TextInput
+                style={styles.inputContraseñaField}
+                placeholder="Contraseña"
+                placeholderTextColor="#9ca3af"
+                value={form.contraseña}
+                onChangeText={(v) => setForm({ ...form, contraseña: v })}
+                secureTextEntry={!verContraseña}
+                onFocus={() => setFocusedField("contraseña")}
+                onBlur={() => setFocusedField(null)}
+                editable={!cargando}
+              />
+              <TouchableOpacity
+                style={styles.ojoBton}
+                onPress={() => setVerContraseña(!verContraseña)}
+              >
+                <Ionicons
+                  name={verContraseña ? "eye-off-outline" : "eye-outline"}
+                  size={20}
+                  color="#9ca3af"
+                />
+              </TouchableOpacity>
+            </View>
 
             <TextInput
               style={[
                 styles.input,
                 focusedField === "celular" && styles.inputFocused,
+                { marginBottom: 0 },
               ]}
               placeholder="Celular (9 dígitos)"
-              placeholderTextColor="#555"
+              placeholderTextColor="#9ca3af"
               value={form.celular}
               onChangeText={(v) => setForm({ ...form, celular: v })}
               keyboardType="phone-pad"
@@ -344,92 +377,66 @@ export default function RegisterScreen() {
             />
           </View>
 
-          {/* Sección de Clasificación Laboral */}
-          <View style={styles.cardSeccion}>
+          {/* Asignación Laboral */}
+          <View style={styles.card}>
             <Text style={styles.labelSeccion}>Asignación Laboral</Text>
 
-            <Text style={styles.dropdownLabel}>Rol Funcional</Text>
+            <Text style={styles.pickerLabel}>Rol Funcional</Text>
             <View style={styles.pickerContainer}>
               <Picker
                 selectedValue={form.roleId}
                 onValueChange={(v) => {
-                  if (v !== 0) setForm({ ...form, roleId: v }); // ✅ ignora si selecciona el placeholder
+                  if (v !== 0) setForm({ ...form, roleId: v });
                 }}
                 style={styles.picker}
-                dropdownIconColor="#fff"
                 enabled={!cargando}
               >
                 <Picker.Item
                   label="— Seleccione un rol —"
                   value={0}
-                  color="#555"
-                  enabled={false} // ✅ no seleccionable
+                  enabled={false}
+                  color="#9ca3af"
                 />
                 {roles.map((r) => (
-                  <Picker.Item
-                    key={r.id}
-                    label={r.nombre}
-                    value={r.id}
-                    style={styles.pickerItem}
-                  />
+                  <Picker.Item key={r.id} label={r.nombre} value={r.id} />
                 ))}
               </Picker>
             </View>
 
-            <Text style={styles.dropdownLabel}>Área de Trabajo</Text>
-            <View style={styles.pickerContainer}>
+            <Text style={styles.pickerLabel}>Área de Trabajo</Text>
+            <View style={[styles.pickerContainer, { marginBottom: 0 }]}>
               <Picker
                 selectedValue={form.areaId}
                 onValueChange={(v) => {
-                  if (v !== 0) setForm({ ...form, areaId: v }); // ✅ ignora si selecciona el placeholder
+                  if (v !== 0) setForm({ ...form, areaId: v });
                 }}
                 style={styles.picker}
-                dropdownIconColor="#fff"
                 enabled={!cargando}
               >
                 <Picker.Item
                   label="— Seleccione un área —"
                   value={0}
-                  color="#555"
-                  enabled={false} // ✅ no seleccionable
+                  enabled={false}
+                  color="#9ca3af"
                 />
                 {areas.map((a) => (
-                  <Picker.Item
-                    key={a.id}
-                    label={a.nombre}
-                    value={a.id}
-                    style={styles.pickerItem}
-                  />
+                  <Picker.Item key={a.id} label={a.nombre} value={a.id} />
                 ))}
               </Picker>
             </View>
           </View>
 
-          {/* Botón de Envío */}
+          {/* Botón registrar */}
           <TouchableOpacity
             style={[styles.botonEnviar, cargando && styles.botonDesactivado]}
             onPress={handleRegister}
             disabled={cargando}
           >
             {cargando ? (
-              <ActivityIndicator size="small" color="#fff" />
+              <ActivityIndicator color="#fff" />
             ) : (
               <Text style={styles.botonEnviarTexto}>Finalizar Registro</Text>
             )}
-          </TouchableOpacity>
-
-          {/* Botón Volver */}
-          <TouchableOpacity
-            style={styles.botonVolver}
-            onPress={() => {
-              if (router.canGoBack()) {
-                router.back();
-              } else {
-                router.replace("auth/metodo-login");
-              }
-            }}
-          >
-            <Text style={styles.linkVolver}>← Volver al menú de inicio</Text>
           </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -438,65 +445,51 @@ export default function RegisterScreen() {
 }
 
 const styles = StyleSheet.create({
-  containerPrincipal: {
-    flex: 1,
-    backgroundColor: "#121212",
-  },
-  scroll: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingHorizontal: 24,
-    paddingTop: 20,
-    paddingBottom: 40,
-  },
-  headerContainer: {
+  container: { flex: 1, backgroundColor: "#f3f4f6" },
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 28,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: "#fff",
+    borderBottomWidth: 1,
+    borderBottomColor: "#e5e7eb",
   },
-  titulo: {
-    fontSize: 28,
-    fontWeight: "800",
-    color: "#fff",
-    letterSpacing: 0.5,
+  botonVolver: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    width: 80,
   },
-  subtitulo: {
-    fontSize: 14,
-    color: "#aaa",
-    marginTop: 4,
-    textAlign: "center",
-  },
-  cardSeccion: {
-    backgroundColor: "#1E1E1E",
-    borderRadius: 20,
+  botonVolverTexto: { fontSize: 15, color: "#374151", fontWeight: "500" },
+  headerTitulo: { fontSize: 17, fontWeight: "700", color: "#111827" },
+  scroll: { padding: 16, gap: 16, paddingBottom: 40 },
+  subtitulo: { fontSize: 14, color: "#6b7280", textAlign: "center" },
+  card: {
+    backgroundColor: "#fff",
+    borderRadius: 16,
     padding: 20,
-    borderWidth: 1,
-    borderColor: "#2a2a2a",
-    marginBottom: 20,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
     shadowRadius: 6,
-    elevation: 4,
+    elevation: 3,
   },
   labelSeccion: {
-    color: "#007AFF",
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: "700",
+    color: "#16a34a",
     textTransform: "uppercase",
     letterSpacing: 0.8,
     marginBottom: 16,
   },
   cameraWrapper: {
-    borderRadius: 16,
+    borderRadius: 12,
     overflow: "hidden",
     backgroundColor: "#000",
-    borderWidth: 1,
-    borderColor: "#333",
   },
-  camara: {
-    height: 220,
-  },
+  camara: { height: 220 },
   overlayCamara: {
     ...StyleSheet.absoluteFillObject,
     justifyContent: "center",
@@ -507,168 +500,128 @@ const styles = StyleSheet.create({
     width: 120,
     height: 155,
     borderWidth: 1.5,
-    borderColor: "#007AFF",
+    borderColor: "#16a34a",
     borderRadius: 60,
     borderStyle: "dashed",
     backgroundColor: "transparent",
   },
   botonFoto: {
-    backgroundColor: "#2a2a2a",
+    backgroundColor: "#f3f4f6",
     height: 48,
     justifyContent: "center",
     alignItems: "center",
   },
-  botonTextoFoto: {
-    color: "#fff",
-    fontSize: 14,
-    fontWeight: "600",
-  },
+  botonFotoTexto: { color: "#374151", fontSize: 14, fontWeight: "600" },
   fotoOkContainer: {
-    backgroundColor: "rgba(46, 125, 50, 0.1)",
-    borderRadius: 14,
+    backgroundColor: "#f0fdf4",
+    borderRadius: 12,
     padding: 20,
     alignItems: "center",
     borderWidth: 1,
-    borderColor: "rgba(46, 125, 50, 0.3)",
+    borderColor: "#bbf7d0",
+    gap: 8,
   },
-  fotoOkIcono: {
-    fontSize: 28,
-    marginBottom: 6,
-  },
-  fotoOkTexto: {
-    fontSize: 15,
-    color: "#4caf50",
-    fontWeight: "700",
-    textAlign: "center",
-  },
-  botonReintentarFoto: {
-    marginTop: 12,
+  fotoOkTexto: { fontSize: 15, color: "#16a34a", fontWeight: "700" },
+  botonReintentar: {
     paddingVertical: 6,
     paddingHorizontal: 16,
-    backgroundColor: "#2a2a2a",
+    backgroundColor: "#e5e7eb",
     borderRadius: 8,
   },
-  linkReintentar: {
-    color: "#aaa",
-    fontSize: 12,
-    fontWeight: "600",
-  },
+  botonReintentarTexto: { color: "#374151", fontSize: 12, fontWeight: "600" },
   input: {
-    backgroundColor: "#121212",
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 13,
+    backgroundColor: "#f9fafb",
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
     fontSize: 15,
-    marginBottom: 14,
+    marginBottom: 12,
     borderWidth: 1.5,
-    borderColor: "#333",
-    color: "#fff",
+    borderColor: "#e5e7eb",
+    color: "#111827",
   },
-  inputFocused: {
-    borderColor: "#007AFF",
+  inputContraseñaContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#f9fafb",
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: "#e5e7eb",
+    marginBottom: 12,
   },
-  dropdownLabel: {
-    color: "#ccc",
+  inputContraseñaField: {
+    flex: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 15,
+    color: "#111827",
+  },
+  ojoBton: { paddingHorizontal: 14, paddingVertical: 12 },
+  inputFocused: { borderColor: "#16a34a" },
+  pickerLabel: {
     fontSize: 12,
+    color: "#6b7280",
     fontWeight: "600",
     marginBottom: 6,
-    marginLeft: 2,
   },
   pickerContainer: {
-    backgroundColor: "#121212",
-    borderRadius: 12,
+    backgroundColor: "#f9fafb",
+    borderRadius: 10,
     borderWidth: 1.5,
-    borderColor: "#333",
-    marginBottom: 16,
+    borderColor: "#e5e7eb",
+    marginBottom: 14,
     overflow: "hidden",
     height: 50,
     justifyContent: "center",
   },
-  picker: {
-    color: "#fff",
-    backgroundColor: "transparent",
-  },
-  pickerItem: {
-    fontSize: 15,
-    backgroundColor: "#1E1E1E",
-    color: "#fff",
-  },
+  picker: { color: "#111827" },
   botonEnviar: {
-    backgroundColor: "#007AFF",
-    borderRadius: 16,
+    backgroundColor: "#16a34a",
+    borderRadius: 14,
     height: 56,
     justifyContent: "center",
     alignItems: "center",
-    marginTop: 10,
-    shadowColor: "#007AFF",
+    shadowColor: "#16a34a",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 5,
     elevation: 4,
   },
-  botonDesactivado: {
-    backgroundColor: "#333",
-  },
-  botonEnviarTexto: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "700",
-    letterSpacing: 0.5,
-  },
-  botonVolver: {
-    marginTop: 24,
-    paddingVertical: 12,
-    alignItems: "center",
-  },
-  linkVolver: {
-    color: "rgba(255, 255, 255, 0.6)",
-    fontSize: 14,
-    fontWeight: "600",
-    textDecorationLine: "underline",
-  },
-  containerPermisos: {
+  botonDesactivado: { backgroundColor: "#9ca3af" },
+  botonEnviarTexto: { color: "#fff", fontSize: 16, fontWeight: "700" },
+  permisoContenido: {
     flex: 1,
-    backgroundColor: "#121212",
     justifyContent: "center",
     alignItems: "center",
     padding: 24,
   },
-  cardPermisos: {
-    backgroundColor: "#1E1E1E",
-    borderRadius: 24,
+  permisoCard: {
+    backgroundColor: "#fff",
+    borderRadius: 20,
     padding: 32,
     alignItems: "center",
     width: "100%",
-    borderWidth: 1,
-    borderColor: "#2a2a2a",
+    gap: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 3,
   },
-  iconoSeguridad: {
-    fontSize: 48,
-    marginBottom: 16,
-  },
-  tituloPermisos: {
-    color: "#fff",
-    fontSize: 20,
-    fontWeight: "700",
-    marginBottom: 12,
-  },
-  textoPermisos: {
-    color: "#aaa",
+  permisoTitulo: { fontSize: 20, fontWeight: "700", color: "#111827" },
+  permisoTexto: {
     fontSize: 14,
+    color: "#6b7280",
     textAlign: "center",
     lineHeight: 20,
-    marginBottom: 24,
   },
   botonPermiso: {
-    backgroundColor: "#007AFF",
+    backgroundColor: "#16a34a",
     paddingVertical: 14,
     borderRadius: 12,
     width: "100%",
     alignItems: "center",
+    marginTop: 8,
   },
-  botonTexto: {
-    color: "#fff",
-    fontSize: 15,
-    fontWeight: "700",
-  },
+  botonPermisoTexto: { color: "#fff", fontSize: 15, fontWeight: "700" },
 });
