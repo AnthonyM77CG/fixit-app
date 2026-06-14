@@ -1,30 +1,45 @@
-// app/index.tsx
-import { Redirect } from "expo-router";
+import { useEffect } from "react";
+import { useRouter } from "expo-router";
 import { useAuth } from "../src/context/AuthContext";
-import { ActivityIndicator, View } from "react-native";
+import { View, ActivityIndicator } from "react-native";
 
-export default function Index() {
+export default function InicioScreen() {
   const { usuario, cargando } = useAuth();
+  const router = useRouter();
 
-  if (cargando) {
-    return (
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-        <ActivityIndicator size="large" />
-      </View>
-    );
-  }
+  useEffect(() => {
+    if (cargando) return; // ✅ espera a que cargue la sesión
 
-  if (!usuario) return <Redirect href="/auth/metodo-login" />;
+    if (!usuario) {
+      router.replace("/auth/metodo-login");
+      return;
+    }
 
-  //Redirige según el rol
-  switch (usuario.rol) {
-    case "Administrador":
-      return <Redirect href="/administrador/inicio" />;
-    case "Tecnico":
-      return <Redirect href="/tecnico/inicio" />;
-    case "Empleado":
-      return <Redirect href="/empleado/inicio" />;
-    default:
-      return <Redirect href="/auth/metodo-login" />;
-  }
+    switch (usuario.rol) {
+      case "Administrador":
+        router.replace("/administrador/inicio");
+        break;
+      case "Técnico":
+        router.replace("/tecnico/inicio");
+        break;
+      case "Empleado":
+        router.replace("/empleado/inicio");
+        break;
+      default:
+        router.replace("/auth/metodo-login");
+    }
+  }, [usuario, cargando]);
+
+  return (
+    <View
+      style={{
+        flex: 1,
+        justifyContent: "center",
+        alignItems: "center",
+        backgroundColor: "#f3f4f6",
+      }}
+    >
+      <ActivityIndicator color="#16a34a" size="large" />
+    </View>
+  );
 }
