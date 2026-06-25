@@ -15,6 +15,7 @@ import { useFocusEffect } from "expo-router";
 import { useAuth } from "../../src/context/AuthContext";
 import { incidenciaService } from "../../src/services/incidencia.service";
 import { IncidenciaResponse } from "../../src/models/incidencia.model";
+import { crearWebSocket } from "../../src/services/websocket.service";
 
 type Tab = "pendientes" | "enProceso" | "resueltas";
 
@@ -51,20 +52,23 @@ export default function AdminInicioScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      cargarIncidencias();
+      cargarIncidencias(true);
+
+      const ws = crearWebSocket(() => cargarIncidencias(false));
+      return () => ws.close();
     }, []),
   );
 
-  const cargarIncidencias = async () => {
+  const cargarIncidencias = async (mostrarSpinner = true) => {
     try {
-      setCargando(true);
+      if (mostrarSpinner) setCargando(true);
       const data = await incidenciaService.todasLasIncidencias();
       setIncidencias(data);
     } catch (e: any) {
       console.log("Error:", e.message);
       Alert.alert("Error", "No se pudieron cargar las incidencias");
     } finally {
-      setCargando(false);
+      if (mostrarSpinner) setCargando(false);
     }
   };
 
