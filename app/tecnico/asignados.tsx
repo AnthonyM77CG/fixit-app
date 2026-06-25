@@ -15,6 +15,7 @@ import { useFocusEffect } from "expo-router";
 import { useAuth } from "../../src/context/AuthContext";
 import { incidenciaService } from "../../src/services/incidencia.service";
 import { IncidenciaResponse } from "../../src/models/incidencia.model";
+import { crearWebSocket } from "../../src/services/websocket.service";
 
 type TabTecnico = "porAtender" | "enCurso" | "resueltos";
 
@@ -51,13 +52,16 @@ export default function AsignadasTecnicoScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      cargarIncidenciasAsignadas();
+      cargarIncidenciasAsignadas(true);
+
+      const ws = crearWebSocket(() => cargarIncidenciasAsignadas(false));
+      return () => ws.close();
     }, []),
   );
 
-  const cargarIncidenciasAsignadas = async () => {
+  const cargarIncidenciasAsignadas = async (mostrarSpinner = true) => {
     try {
-      setCargando(true);
+      if (mostrarSpinner) setCargando(true);
       const data = await incidenciaService.misAsignaciones();
       setIncidencias(data);
     } catch (e: any) {
@@ -66,7 +70,7 @@ export default function AsignadasTecnicoScreen() {
       console.log("Error message:", e.message);
       Alert.alert("Error", "No se pudieron cargar las tareas asignadas");
     } finally {
-      setCargando(false);
+      if (mostrarSpinner) setCargando(false);
     }
   };
 
@@ -302,7 +306,7 @@ const styles = StyleSheet.create({
     position: "relative",
   },
   tabActivo: { backgroundColor: "#f9fafb" },
-  tabTexto: { fontSize: 13, fontWeight: "600", color: "#9ca3af" }, // Bajado a 13px ligeramente por ser 3 pestañas
+  tabTexto: { fontSize: 13, fontWeight: "600", color: "#9ca3af" },
   tabTextoActivo: { color: "#0891b2", fontWeight: "700" },
   tabIndicador: {
     position: "absolute",

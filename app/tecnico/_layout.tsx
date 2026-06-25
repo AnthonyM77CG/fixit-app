@@ -41,15 +41,6 @@ export default function TecnicoLayout() {
         }}
       />
       <Tabs.Screen
-        name="perfil"
-        options={{
-          title: "Perfil",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="person-outline" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
         name="atencion/[id]"
         options={{
           href: null,

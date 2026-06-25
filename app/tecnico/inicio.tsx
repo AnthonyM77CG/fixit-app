@@ -15,6 +15,7 @@ import { useFocusEffect } from "expo-router";
 import { useAuth } from "../../src/context/AuthContext";
 import { incidenciaService } from "../../src/services/incidencia.service";
 import { IncidenciaResponse } from "../../src/models/incidencia.model";
+import { crearWebSocket } from "../../src/services/websocket.service";
 
 const CYAN = "#0891b2";
 
@@ -24,15 +25,9 @@ export default function InicioTecnicoScreen() {
   const [incidencias, setIncidencias] = useState<IncidenciaResponse[]>([]);
   const [cargando, setCargando] = useState(true);
 
-  useFocusEffect(
-    useCallback(() => {
-      cargarTicketsAsignados();
-    }, []),
-  );
-
-  const cargarTicketsAsignados = async () => {
+  const cargarTicketsAsignados = async (mostrarSpinner = true) => {
     try {
-      setCargando(true);
+      if (mostrarSpinner) setCargando(true);
       const data = await incidenciaService.misAsignaciones();
       setIncidencias(data);
     } catch (e) {
@@ -41,9 +36,18 @@ export default function InicioTecnicoScreen() {
         "No se pudieron sincronizar las órdenes de trabajo.",
       );
     } finally {
-      setCargando(false);
+      if (mostrarSpinner) setCargando(false);
     }
   };
+
+  useFocusEffect(
+    useCallback(() => {
+      cargarTicketsAsignados(true);
+
+      const ws = crearWebSocket(() => cargarTicketsAsignados(false));
+      return () => ws.close();
+    }, []),
+  );
 
   const handleCerrarSesion = async () => {
     await cerrarSesion();
