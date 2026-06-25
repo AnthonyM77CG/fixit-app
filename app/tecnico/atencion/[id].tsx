@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -13,10 +13,11 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter, useLocalSearchParams } from "expo-router";
+import { useRouter, useLocalSearchParams, useFocusEffect } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
 import { incidenciaService } from "../../../src/services/incidencia.service";
 import { IncidenciaResponse } from "../../../src/models/incidencia.model";
+import { crearWebSocket } from "../../../src/services/websocket.service";
 
 export default function AtencionScreen() {
   const router = useRouter();
@@ -29,22 +30,28 @@ export default function AtencionScreen() {
   const [imagenes, setImagenes] = useState<string[]>([]);
   const [imagenAmpliada, setImagenAmpliada] = useState<string | null>(null);
 
-  useEffect(() => {
-    cargarIncidencia();
-  }, [id]);
-
-  const cargarIncidencia = async () => {
+  const cargarIncidencia = async (mostrarSpinner = true) => {
     try {
-      setCargando(true);
+      if (mostrarSpinner) setCargando(true);
       const data = await incidenciaService.obtenerPorId(Number(id));
       setIncidencia(data);
     } catch (e) {
       Alert.alert("Error", "No se pudo cargar la tarea");
       router.back();
     } finally {
-      setCargando(false);
+      if (mostrarSpinner) setCargando(false);
     }
   };
+
+  useFocusEffect(
+    useCallback(() => {
+      if (id) {
+        cargarIncidencia(true);
+      }
+      const ws = crearWebSocket(() => cargarIncidencia(false));
+      return () => ws.close();
+    }, [id]),
+  );
 
   const handleTomarIncidencia = async () => {
     Alert.alert("Tomar Incidencia", "¿Confirmas que tomarás esta incidencia?", [
@@ -102,9 +109,7 @@ export default function AtencionScreen() {
   };
 
   const handleCerrarTicket = async () => {
-    // 1. Validar comentario (que no esté vacío o solo espacios)
     const comentarioValido = comentario.trim().length > 0;
-    // 2. Validar que haya al menos una imagen
     const imagenesValidas = imagenes.length > 0;
 
     if (!comentarioValido && !imagenesValidas) {
@@ -153,7 +158,12 @@ export default function AtencionScreen() {
       Alert.alert(
         "¡Ticket Cerrado!",
         "La incidencia fue marcada como resuelta",
-        [{ text: "OK", onPress: () => router.back() }],
+        [
+          {
+            text: "OK",
+            onPress: () => router.replace("tecnico/asignados"),
+          },
+        ],
       );
     } catch (e: any) {
       Alert.alert(
@@ -183,7 +193,7 @@ export default function AtencionScreen() {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity
-          onPress={() => router.back()}
+          onPress={() => router.push("tecnico/asignados")}
           style={styles.botonVolver}
         >
           <Ionicons name="arrow-back" size={20} color="#374151" />
@@ -248,29 +258,58 @@ export default function AtencionScreen() {
             </View>
           </View>
 
-          {incidencia.imagenes && incidencia.imagenes.length > 0 && (
-            <View style={styles.imagenesContainer}>
-              <Text style={styles.imagenLabel}>Evidencia del empleado:</Text>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                style={{ marginTop: 8 }}
-              >
-                {incidencia.imagenes.map((url, index) => (
-                  <TouchableOpacity
-                    key={index}
-                    onPress={() => setImagenAmpliada(url)}
-                    style={{ marginRight: 8 }}
-                  >
-                    <Image
-                      source={{ uri: url }}
-                      style={styles.imagenMiniatura}
-                    />
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </View>
-          )}
+          {/* ✅ Imágenes del empleado */}
+          {incidencia.imagenesEmpleado &&
+            incidencia.imagenesEmpleado.length > 0 && (
+              <View style={styles.imagenesContainer}>
+                <Text style={styles.imagenLabel}>Evidencia del empleado:</Text>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  style={{ marginTop: 8 }}
+                >
+                  {incidencia.imagenesEmpleado.map((url, index) => (
+                    <TouchableOpacity
+                      key={index}
+                      onPress={() => setImagenAmpliada(url)}
+                      style={{ marginRight: 8 }}
+                    >
+                      <Image
+                        source={{ uri: url }}
+                        style={styles.imagenMiniatura}
+                      />
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            )}
+
+          {/* ✅ Imágenes del técnico — solo si está resuelto */}
+          {incidencia.estado === "RESUELTO" &&
+            incidencia.imagenesTecnico &&
+            incidencia.imagenesTecnico.length > 0 && (
+              <View style={styles.imagenesContainer}>
+                <Text style={styles.imagenLabel}>Evidencia del técnico:</Text>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  style={{ marginTop: 8 }}
+                >
+                  {incidencia.imagenesTecnico.map((url, index) => (
+                    <TouchableOpacity
+                      key={index}
+                      onPress={() => setImagenAmpliada(url)}
+                      style={{ marginRight: 8 }}
+                    >
+                      <Image
+                        source={{ uri: url }}
+                        style={styles.imagenMiniatura}
+                      />
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            )}
         </View>
 
         {/* PENDIENTE — botón tomar incidencia */}

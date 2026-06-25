@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -8,13 +8,15 @@ import {
   ActivityIndicator,
   Alert,
   Modal,
+  Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter, useLocalSearchParams } from "expo-router";
+import { useRouter, useLocalSearchParams, useFocusEffect } from "expo-router";
 import { incidenciaService } from "../../../src/services/incidencia.service";
 import { usuarioService } from "../../../src/services/usuario.service";
 import { IncidenciaResponse } from "../../../src/models/incidencia.model";
+import { crearWebSocket } from "../../../src/services/websocket.service";
 
 const estadoConfig: Record<
   string,
@@ -47,14 +49,11 @@ export default function AdminDetalleScreen() {
   const [cargando, setCargando] = useState(true);
   const [asignando, setAsignando] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
+  const [imagenAmpliada, setImagenAmpliada] = useState<string | null>(null); // ✅ agregar
 
-  useEffect(() => {
-    cargarDatos();
-  }, [id]);
-
-  const cargarDatos = async () => {
+  const cargarDatos = async (mostrarSpinner = true) => {
     try {
-      setCargando(true);
+      if (mostrarSpinner) setCargando(true);
       const [incData, tecData] = await Promise.all([
         incidenciaService.obtenerPorId(Number(id)),
         usuarioService.obtenerTecnicos(),
@@ -65,9 +64,18 @@ export default function AdminDetalleScreen() {
       Alert.alert("Error", "No se pudo cargar la incidencia");
       router.back();
     } finally {
-      setCargando(false);
+      if (mostrarSpinner) setCargando(false);
     }
   };
+
+  useFocusEffect(
+    useCallback(() => {
+      cargarDatos(true);
+
+      const ws = crearWebSocket(() => cargarDatos(false));
+      return () => ws.close();
+    }, [id]),
+  );
 
   const handleAsignar = async (tecnicoId: number, tecnicoNombre: string) => {
     setModalVisible(false);
@@ -116,7 +124,7 @@ export default function AdminDetalleScreen() {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity
-          onPress={() => router.back()}
+          onPress={() => router.push("/administrador/incidencias")}
           style={styles.botonVolver}
         >
           <Ionicons name="arrow-back" size={20} color="#374151" />
@@ -125,6 +133,32 @@ export default function AdminDetalleScreen() {
         <Text style={styles.headerTitulo}>Detalle</Text>
         <View style={{ width: 80 }} />
       </View>
+
+      {/* Modal imagen ampliada */}
+      <Modal
+        visible={imagenAmpliada !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setImagenAmpliada(null)}
+      >
+        <TouchableOpacity
+          style={styles.modalImagenOverlay}
+          onPress={() => setImagenAmpliada(null)}
+          activeOpacity={1}
+        >
+          <Image
+            source={{ uri: imagenAmpliada! }}
+            style={styles.imagenAmpliada}
+            resizeMode="contain"
+          />
+          <TouchableOpacity
+            style={styles.cerrarModal}
+            onPress={() => setImagenAmpliada(null)}
+          >
+            <Ionicons name="close-circle" size={36} color="#fff" />
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
 
       <ScrollView contentContainerStyle={styles.scroll}>
         {/* Detalles */}
@@ -170,6 +204,58 @@ export default function AdminDetalleScreen() {
 
           <Text style={styles.label}>Área</Text>
           <Text style={styles.valor}>{incidencia.area}</Text>
+
+          {/* Imágenes del empleado */}
+          {incidencia.imagenesEmpleado &&
+            incidencia.imagenesEmpleado.length > 0 && (
+              <View style={styles.imagenesContainer}>
+                <Text style={styles.imagenLabel}>Evidencia del empleado:</Text>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  style={{ marginTop: 8 }}
+                >
+                  {incidencia.imagenesEmpleado.map((url, index) => (
+                    <TouchableOpacity
+                      key={index}
+                      onPress={() => setImagenAmpliada(url)}
+                      style={{ marginRight: 8 }}
+                    >
+                      <Image
+                        source={{ uri: url }}
+                        style={styles.imagenMiniatura}
+                      />
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            )}
+
+          {/* Imágenes del técnico — siempre visible si existen */}
+          {incidencia.imagenesTecnico &&
+            incidencia.imagenesTecnico.length > 0 && (
+              <View style={styles.imagenesContainer}>
+                <Text style={styles.imagenLabel}>Evidencia del técnico:</Text>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  style={{ marginTop: 8 }}
+                >
+                  {incidencia.imagenesTecnico.map((url, index) => (
+                    <TouchableOpacity
+                      key={index}
+                      onPress={() => setImagenAmpliada(url)}
+                      style={{ marginRight: 8 }}
+                    >
+                      <Image
+                        source={{ uri: url }}
+                        style={styles.imagenMiniatura}
+                      />
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            )}
         </View>
 
         {/* Asignación de técnico */}
@@ -194,22 +280,38 @@ export default function AdminDetalleScreen() {
             </View>
           )}
 
-          <TouchableOpacity
-            style={[styles.botonAsignar, asignando && styles.botonDesactivado]}
-            onPress={() => setModalVisible(true)}
-            disabled={asignando}
-          >
-            {asignando ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <>
-                <Ionicons name="person-add-outline" size={18} color="#fff" />
-                <Text style={styles.botonAsignarTexto}>
-                  {incidencia.tecnico ? "Cambiar Técnico" : "Asignar Técnico"}
-                </Text>
-              </>
-            )}
-          </TouchableOpacity>
+          {/* ✅ Solo muestra el botón si está PENDIENTE */}
+          {incidencia.estado === "PENDIENTE" ? (
+            <TouchableOpacity
+              style={[
+                styles.botonAsignar,
+                asignando && styles.botonDesactivado,
+              ]}
+              onPress={() => setModalVisible(true)}
+              disabled={asignando}
+            >
+              {asignando ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <>
+                  <Ionicons name="person-add-outline" size={18} color="#fff" />
+                  <Text style={styles.botonAsignarTexto}>
+                    {incidencia.tecnico ? "Cambiar Técnico" : "Asignar Técnico"}
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+          ) : (
+            // ✅ Mensaje informativo cuando ya no se puede cambiar
+            <View style={styles.asignacionBloqueadaContainer}>
+              <Ionicons name="lock-closed-outline" size={16} color="#9ca3af" />
+              <Text style={styles.asignacionBloqueadaTexto}>
+                {incidencia.estado === "RESUELTO"
+                  ? "Incidencia resuelta, no se puede reasignar"
+                  : "El técnico ya tomó la incidencia"}
+              </Text>
+            </View>
+          )}
         </View>
 
         {/* Seguimiento */}
@@ -269,7 +371,6 @@ export default function AdminDetalleScreen() {
                 <Ionicons name="close" size={24} color="#374151" />
               </TouchableOpacity>
             </View>
-
             <ScrollView>
               {tecnicos.length === 0 ? (
                 <View style={styles.vacio}>
@@ -366,6 +467,9 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   badgeTexto: { fontSize: 12, fontWeight: "700" },
+  imagenesContainer: { marginTop: 12 },
+  imagenLabel: { fontSize: 12, color: "#6b7280", fontWeight: "600" },
+  imagenMiniatura: { width: 80, height: 80, borderRadius: 8 },
   tecnicoAsignadoContainer: {
     flexDirection: "row",
     alignItems: "center",
@@ -415,7 +519,7 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: "#16a34a",
+    backgroundColor: "#9ca3af",
     justifyContent: "center",
     alignItems: "center",
   },
@@ -430,6 +534,14 @@ const styles = StyleSheet.create({
     marginTop: 4,
     fontStyle: "italic",
   },
+  modalImagenOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.9)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  imagenAmpliada: { width: "90%", height: "70%" },
+  cerrarModal: { position: "absolute", top: 50, right: 20 },
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.5)",
@@ -470,4 +582,20 @@ const styles = StyleSheet.create({
   tecnicoItemCorreo: { fontSize: 12, color: "#9ca3af", marginTop: 2 },
   vacio: { paddingVertical: 40, alignItems: "center" },
   vacioTexto: { fontSize: 14, color: "#9ca3af" },
+  asignacionBloqueadaContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: "#f9fafb",
+    borderRadius: 10,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: "#e5e7eb",
+  },
+  asignacionBloqueadaTexto: {
+    fontSize: 13,
+    color: "#9ca3af",
+    fontStyle: "italic",
+    flex: 1,
+  },
 });

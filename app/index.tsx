@@ -8,7 +8,7 @@ export default function InicioScreen() {
   const router = useRouter();
 
   useEffect(() => {
-    if (cargando) return; // ✅ espera a que cargue la sesión
+    if (cargando) return;
 
     if (!usuario) {
       router.replace("/auth/metodo-login");

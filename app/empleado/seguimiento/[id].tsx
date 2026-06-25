@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -7,35 +7,23 @@ import {
   ScrollView,
   ActivityIndicator,
   Alert,
+  Modal,
+  Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter, useLocalSearchParams } from "expo-router";
+import { useRouter, useLocalSearchParams, useFocusEffect } from "expo-router";
 import { incidenciaService } from "../../../src/services/incidencia.service";
 import { IncidenciaResponse } from "../../../src/models/incidencia.model";
+import { crearWebSocket } from "../../../src/services/websocket.service";
 
 const estadoConfig: Record<
   string,
-  { color: string; bg: string; label: string; icono: string }
+  { color: string; bg: string; label: string }
 > = {
-  PENDIENTE: {
-    color: "#92400e",
-    bg: "#fef3c7",
-    label: "Pendiente",
-    icono: "time-outline",
-  },
-  EN_PROCESO: {
-    color: "#1e40af",
-    bg: "#dbeafe",
-    label: "En Proceso",
-    icono: "construct-outline",
-  },
-  RESUELTO: {
-    color: "#065f46",
-    bg: "#d1fae5",
-    label: "Resuelto",
-    icono: "checkmark-circle-outline",
-  },
+  PENDIENTE: { color: "#92400e", bg: "#fef3c7", label: "Pendiente" },
+  EN_PROCESO: { color: "#1e40af", bg: "#dbeafe", label: "En Proceso" },
+  RESUELTO: { color: "#065f46", bg: "#d1fae5", label: "Resuelto" },
 };
 
 const prioridadConfig: Record<string, { color: string; bg: string }> = {
@@ -45,43 +33,47 @@ const prioridadConfig: Record<string, { color: string; bg: string }> = {
   Critica: { color: "#fff", bg: "#ef4444" },
 };
 
-export default function SeguimientoScreen() {
+export default function EmpleadoDetalleScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [incidencia, setIncidencia] = useState<IncidenciaResponse | null>(null);
   const [cargando, setCargando] = useState(true);
+  const [imagenAmpliada, setImagenAmpliada] = useState<string | null>(null);
 
-  useEffect(() => {
-    cargarIncidencia();
-  }, [id]);
+  useFocusEffect(
+    useCallback(() => {
+      if (!id) return;
+      cargarDatos(true);
 
-  const cargarIncidencia = async () => {
+      const ws = crearWebSocket(() => cargarDatos(false));
+
+      return () => {
+        if (ws) ws.close();
+      };
+    }, [id]),
+  );
+
+  const cargarDatos = async (mostrarSpinner = true) => {
     try {
-      setCargando(true);
+      if (mostrarSpinner) setCargando(true);
       const data = await incidenciaService.obtenerPorId(Number(id));
       setIncidencia(data);
-    } catch (e) {
-      Alert.alert("Error", "No se pudo cargar la incidencia");
-      router.back();
+    } catch (e: any) {
+      if (mostrarSpinner) {
+        Alert.alert("Error", "No se pudo cargar la incidencia");
+        router.back();
+      }
     } finally {
-      setCargando(false);
+      if (mostrarSpinner) setCargando(false);
     }
   };
 
-  const formatFecha = (fecha: string) => {
-    return new Date(fecha).toLocaleDateString("es-PE", {
+  const formatFecha = (fecha: string) =>
+    new Date(fecha).toLocaleDateString("es-PE", {
       day: "2-digit",
       month: "2-digit",
       year: "numeric",
     });
-  };
-
-  const formatHora = (fecha: string) => {
-    return new Date(fecha).toLocaleTimeString("es-PE", {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
 
   if (cargando) {
     return (
@@ -103,27 +95,56 @@ export default function SeguimientoScreen() {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity
-          onPress={() => router.push("/empleado/historial")}
+          onPress={() => router.back()}
           style={styles.botonVolver}
         >
           <Ionicons name="arrow-back" size={20} color="#374151" />
           <Text style={styles.botonVolverTexto}>Volver</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitulo}>Seguimiento</Text>
+        <Text style={styles.headerTitulo}>Mi Incidencia</Text>
         <View style={{ width: 80 }} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.scroll}>
-        {/* Detalles de la incidencia */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitulo}>Detalles de la Incidencia</Text>
+      {/* Modal imagen ampliada */}
+      <Modal
+        visible={imagenAmpliada !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setImagenAmpliada(null)}
+      >
+        <TouchableOpacity
+          style={styles.modalImagenOverlay}
+          onPress={() => setImagenAmpliada(null)}
+          activeOpacity={1}
+        >
+          <Image
+            source={{ uri: imagenAmpliada! }}
+            style={styles.imagenAmpliada}
+            resizeMode="contain"
+          />
+          <TouchableOpacity
+            style={styles.cerrarModal}
+            onPress={() => setImagenAmpliada(null)}
+          >
+            <Ionicons name="close-circle" size={36} color="#fff" />
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
 
-          <Text style={styles.detalleLabel}>Detalle Técnico</Text>
-          <Text style={styles.detalleTexto}>{incidencia.detalle}</Text>
+      <ScrollView contentContainerStyle={styles.scroll}>
+        {/* Detalles */}
+        <View style={styles.card}>
+          <Text style={styles.cardTitulo}>Detalles del Reporte</Text>
+
+          <Text style={styles.label}>Tipo de Problema</Text>
+          <Text style={styles.valor}>{incidencia.tipo}</Text>
+
+          <Text style={styles.label}>Descripción</Text>
+          <Text style={styles.valor}>{incidencia.detalle}</Text>
 
           <View style={styles.fila}>
             <View style={styles.filaItem}>
-              <Text style={styles.detalleLabel}>Prioridad</Text>
+              <Text style={styles.label}>Prioridad Asignada</Text>
               <View style={[styles.badge, { backgroundColor: prioridad.bg }]}>
                 <Text style={[styles.badgeTexto, { color: prioridad.color }]}>
                   {incidencia.prioridad}
@@ -131,81 +152,141 @@ export default function SeguimientoScreen() {
               </View>
             </View>
             <View style={styles.filaItem}>
-              <Text style={styles.detalleLabel}>Fecha de apertura</Text>
-              <Text style={styles.detalleTexto}>
-                {formatFecha(incidencia.fechaApertura)}
-              </Text>
+              <Text style={styles.label}>Estado Actual</Text>
+              <View
+                style={[styles.badge, { backgroundColor: estadoActual.bg }]}
+              >
+                <Text
+                  style={[styles.badgeTexto, { color: estadoActual.color }]}
+                >
+                  {estadoActual.label}
+                </Text>
+              </View>
             </View>
           </View>
 
-          <Text style={styles.detalleLabel}>Asignado a</Text>
+          <Text style={styles.label}>Fecha de reporte</Text>
+          <Text style={styles.valor}>
+            {formatFecha(incidencia.fechaApertura)}
+          </Text>
+
+          <Text style={styles.label}>Área afectada</Text>
+          <Text style={styles.valor}>{incidencia.area}</Text>
+
+          {/* Imágenes adjuntadas por el empleado */}
+          {incidencia.imagenesEmpleado &&
+            incidencia.imagenesEmpleado.length > 0 && (
+              <View style={styles.imagenesContainer}>
+                <Text style={styles.imagenLabel}>Tus evidencias adjuntas:</Text>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  style={{ marginTop: 8 }}
+                >
+                  {incidencia.imagenesEmpleado.map((url, index) => (
+                    <TouchableOpacity
+                      key={index}
+                      onPress={() => setImagenAmpliada(url)}
+                      style={{ marginRight: 8 }}
+                    >
+                      <Image
+                        source={{ uri: url }}
+                        style={styles.imagenMiniatura}
+                      />
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            )}
+
+          {/* Imágenes de resolución (Técnico) */}
+          {incidencia.imagenesTecnico &&
+            incidencia.imagenesTecnico.length > 0 && (
+              <View style={styles.imagenesContainer}>
+                <Text style={styles.imagenLabel}>
+                  Evidencia de solución (Técnico):
+                </Text>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  style={{ marginTop: 8 }}
+                >
+                  {incidencia.imagenesTecnico.map((url, index) => (
+                    <TouchableOpacity
+                      key={index}
+                      onPress={() => setImagenAmpliada(url)}
+                      style={{ marginRight: 8 }}
+                    >
+                      <Image
+                        source={{ uri: url }}
+                        style={styles.imagenMiniatura}
+                      />
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            )}
+        </View>
+
+        {/* Información del Técnico */}
+        <View style={styles.card}>
+          <Text style={styles.cardTitulo}>Técnico a Cargo</Text>
+
           {incidencia.tecnico ? (
-            <Text style={styles.detalleTexto}>
-              {incidencia.tecnico} - Técnico
-            </Text>
+            <View style={styles.tecnicoAsignadoContainer}>
+              <View style={styles.tecnicoIcono}>
+                <Ionicons name="person" size={24} color="#16a34a" />
+              </View>
+              <View style={styles.tecnicoInfo}>
+                <Text style={styles.tecnicoNombre}>{incidencia.tecnico}</Text>
+                <Text style={styles.tecnicoLabel}>Atendiendo tu solicitud</Text>
+              </View>
+              <Ionicons name="chatbubbles-outline" size={24} color="#16a34a" />
+            </View>
           ) : (
-            <View style={styles.porAsignarContainer}>
-              <Ionicons name="time-outline" size={14} color="#9ca3af" />
-              <Text style={styles.porAsignarTexto}>Por asignar</Text>
+            <View style={styles.sinTecnicoContainer}>
+              <Ionicons name="warning-outline" size={32} color="#f59e0b" />
+              <Text style={styles.sinTecnicoTexto}>
+                Aún no tienes un técnico asignado
+              </Text>
             </View>
           )}
         </View>
 
-        {/* Estado actual y seguimiento */}
+        {/* Seguimiento*/}
         <View style={styles.card}>
-          <Text style={styles.cardTitulo}>Estado Actual:</Text>
-
+          <Text style={styles.cardTitulo}>Historial de Seguimiento</Text>
           {incidencia.seguimientos.map((seg, index) => {
             const config = estadoConfig[seg.estado] ?? estadoConfig.PENDIENTE;
             const esUltimo = index === incidencia.seguimientos.length - 1;
-            const esActual = esUltimo;
-
             return (
               <View key={index} style={styles.seguimientoItem}>
-                {/* Línea y punto */}
                 <View style={styles.seguimientoLateral}>
-                  <View
-                    style={[
-                      styles.punto,
-                      esActual
-                        ? {
-                            backgroundColor: "#fff",
-                            borderWidth: 2,
-                            borderColor: "#16a34a",
-                          }
-                        : { backgroundColor: "#16a34a" },
-                    ]}
-                  >
-                    <Ionicons
-                      name={config.icono as any}
-                      size={14}
-                      color={esActual ? "#16a34a" : "#fff"}
-                    />
+                  <View style={[styles.punto, esUltimo && styles.puntoActivo]}>
+                    <Ionicons name="ellipse" size={10} color="#fff" />
                   </View>
                   {!esUltimo && <View style={styles.linea} />}
                 </View>
-
-                {/* Contenido */}
                 <View style={styles.seguimientoContenido}>
                   <Text
                     style={[
                       styles.seguimientoEstado,
-                      esActual && { color: "#16a34a" },
+                      esUltimo && { color: "#16a34a" },
                     ]}
                   >
                     {config.label}
                   </Text>
                   <Text style={styles.seguimientoFecha}>
-                    {formatFecha(seg.fecha)}
+                    {new Date(seg.fecha).toLocaleDateString("es-PE")} —{" "}
+                    {new Date(seg.fecha).toLocaleTimeString("es-PE", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
                   </Text>
-                  <Text style={styles.seguimientoHora}>
-                    {formatHora(seg.fecha)}
-                  </Text>
-
-                  {esActual && (
-                    <View style={styles.enProgresoTag}>
-                      <Text style={styles.enProgresoTexto}>En progreso</Text>
-                    </View>
+                  {seg.comentario && (
+                    <Text style={styles.seguimientoComentario}>
+                      {seg.comentario}
+                    </Text>
                   )}
                 </View>
               </View>
@@ -254,14 +335,14 @@ const styles = StyleSheet.create({
     color: "#111827",
     marginBottom: 16,
   },
-  detalleLabel: {
+  label: {
     fontSize: 12,
     color: "#9ca3af",
     fontWeight: "600",
     marginBottom: 4,
     marginTop: 12,
   },
-  detalleTexto: { fontSize: 14, color: "#374151", lineHeight: 20 },
+  valor: { fontSize: 14, color: "#374151", lineHeight: 20 },
   fila: { flexDirection: "row", gap: 16 },
   filaItem: { flex: 1 },
   badge: {
@@ -272,39 +353,68 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   badgeTexto: { fontSize: 12, fontWeight: "700" },
-  seguimientoItem: { flexDirection: "row", gap: 12, marginBottom: 8 },
-  seguimientoLateral: { alignItems: "center", width: 28 },
-  punto: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: "#16a34a",
+  imagenesContainer: { marginTop: 16 },
+  imagenLabel: { fontSize: 13, color: "#4b5563", fontWeight: "600" },
+  imagenMiniatura: { width: 80, height: 80, borderRadius: 8 },
+
+  /* Contenedores de Técnico para Empleado */
+  tecnicoAsignadoContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    backgroundColor: "#f0fdf4",
+    borderRadius: 12,
+    padding: 12,
+  },
+  tecnicoIcono: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "#dcfce7",
     justifyContent: "center",
     alignItems: "center",
   },
+  tecnicoInfo: { flex: 1 },
+  tecnicoNombre: { fontSize: 15, fontWeight: "700", color: "#111827" },
+  tecnicoLabel: { fontSize: 12, color: "#16a34a", marginTop: 2 },
+  sinTecnicoContainer: {
+    alignItems: "center",
+    paddingVertical: 16,
+    gap: 8,
+    marginBottom: 8,
+  },
+  sinTecnicoTexto: { fontSize: 14, color: "#f59e0b", fontWeight: "600" },
+
+  /* Estilos de Seguimiento adaptados */
+  seguimientoItem: { flexDirection: "row", gap: 12, marginBottom: 8 },
+  seguimientoLateral: { alignItems: "center", width: 28 },
+  punto: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: "#9ca3af",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  puntoActivo: { backgroundColor: "#16a34a" },
   linea: { width: 2, flex: 1, backgroundColor: "#d1fae5", marginVertical: 4 },
   seguimientoContenido: { flex: 1, paddingBottom: 16 },
-  seguimientoEstado: { fontSize: 16, fontWeight: "700", color: "#111827" },
-  seguimientoFecha: { fontSize: 13, color: "#6b7280", marginTop: 2 },
-  seguimientoHora: { fontSize: 13, color: "#6b7280" },
-  enProgresoTag: {
-    alignSelf: "flex-start",
-    backgroundColor: "#dbeafe",
-    paddingVertical: 3,
-    paddingHorizontal: 10,
-    borderRadius: 20,
-    marginTop: 6,
-  },
-  enProgresoTexto: { fontSize: 12, color: "#1e40af", fontWeight: "600" },
-  porAsignarContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    marginTop: 4,
-  },
-  porAsignarTexto: {
-    fontSize: 14,
+  seguimientoEstado: { fontSize: 15, fontWeight: "700", color: "#111827" },
+  seguimientoFecha: { fontSize: 12, color: "#6b7280", marginTop: 2 },
+  seguimientoComentario: {
+    fontSize: 12,
     color: "#9ca3af",
+    marginTop: 4,
     fontStyle: "italic",
   },
+
+  /* Modal de Imagen */
+  modalImagenOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.9)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  imagenAmpliada: { width: "90%", height: "70%" },
+  cerrarModal: { position: "absolute", top: 50, right: 20 },
 });
