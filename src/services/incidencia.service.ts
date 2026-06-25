@@ -79,7 +79,7 @@ export const incidenciaService = {
     incidenciaId: number,
     estado: string,
     comentario: string,
-    imagenesBase64?: string[], // ✅ lista en vez de una sola
+    imagenesBase64?: string[],
   ): Promise<IncidenciaResponse> => {
     const headers = await getAuthHeader();
     const res = await api.put(
@@ -92,5 +92,21 @@ export const incidenciaService = {
       { headers },
     );
     return res.data;
+  },
+
+  actualizar: async (
+    incidenciaId: number,
+    request: IncidenciaRequest,
+  ): Promise<IncidenciaResponse> => {
+    const headers = await getAuthHeader();
+    const res = await api.put(`/api/incidencias/${incidenciaId}`, request, {
+      headers,
+    });
+    return res.data;
+  },
+
+  eliminar: async (incidenciaId: number): Promise<void> => {
+    const headers = await getAuthHeader();
+    await api.delete(`/api/incidencias/${incidenciaId}`, { headers });
   },
 };
