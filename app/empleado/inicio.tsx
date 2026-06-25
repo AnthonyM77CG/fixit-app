@@ -15,6 +15,7 @@ import { useFocusEffect } from "expo-router";
 import { useAuth } from "../../src/context/AuthContext";
 import { incidenciaService } from "../../src/services/incidencia.service";
 import { IncidenciaResponse } from "../../src/models/incidencia.model";
+import { crearWebSocket } from "../../src/services/websocket.service";
 
 export default function InicioScreen() {
   const router = useRouter();
@@ -23,26 +24,34 @@ export default function InicioScreen() {
   const [cargando, setCargando] = useState(true);
   const [mostrarAlerta, setMostrarAlerta] = useState(true);
 
-  // Recarga los datos de SQL Server automáticamente cada vez que la pantalla gana foco
   useFocusEffect(
     useCallback(() => {
-      cargarDatosDashboard();
+      cargarDatosDashboard(true);
+
+      const ws = crearWebSocket(() => cargarDatosDashboard(false));
+
+      return () => {
+        if (ws) ws.close();
+      };
     }, []),
   );
 
-  const cargarDatosDashboard = async () => {
+  const cargarDatosDashboard = async (mostrarSpinner = true) => {
     try {
-      setCargando(true);
+      if (mostrarSpinner) setCargando(true);
+
       const data = await incidenciaService.misIncidencias();
       setIncidencias(data);
     } catch (e) {
       console.error("Error al cargar datos del dashboard:", e);
-      Alert.alert(
-        "Error",
-        "No se pudo sincronizar la información del servidor.",
-      );
+      if (mostrarSpinner) {
+        Alert.alert(
+          "Error",
+          "No se pudo sincronizar la información del servidor.",
+        );
+      }
     } finally {
-      setCargando(false);
+      if (mostrarSpinner) setCargando(false);
     }
   };
 
@@ -51,12 +60,10 @@ export default function InicioScreen() {
     router.replace("/auth/metodo-login");
   };
 
-  // Filtrado de contadores para la sección de Resumen
   const pendientes = incidencias.filter((i) => i.estado === "PENDIENTE").length;
   const enProceso = incidencias.filter((i) => i.estado === "EN_PROCESO").length;
   const resueltas = incidencias.filter((i) => i.estado === "RESUELTO").length;
 
-  // Obtenemos la última incidencia creada (asumiendo que el backend las devuelve ordenadas por fecha descendente)
   const ultimaIncidencia = incidencias.length > 0 ? incidencias[0] : null;
 
   return (
@@ -339,7 +346,6 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
 
-  // Estilos de la tarjeta dinámica "Última Incidencia"
   ultimaIncidenciaCard: {
     backgroundColor: "#fff",
     borderRadius: 16,

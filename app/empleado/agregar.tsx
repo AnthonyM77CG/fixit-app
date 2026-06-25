@@ -123,7 +123,6 @@ export default function AgregarScreen() {
         },
       ]);
 
-      // Limpiar formulario
       setForm({ tipoId: 0, prioridad: "", detalle: "" });
       setImagenes([]);
     } catch (e: any) {
@@ -346,12 +345,11 @@ const styles = StyleSheet.create({
   botonCerrarTexto: { color: "#fff", fontSize: 12, fontWeight: "700" },
   scroll: { padding: 20, paddingBottom: 40 },
 
-  // Modificado para coincidir con tu módulo y dar espacio abajo
   titulo: {
     fontSize: 28,
     fontWeight: "800",
     color: "#111827",
-    marginBottom: 18, // 👈 ¡ESTA línea empuja la card para que respire la interfaz!
+    marginBottom: 18,
     marginTop: 4,
   },
 

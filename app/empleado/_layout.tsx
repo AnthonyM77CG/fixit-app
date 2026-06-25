@@ -59,6 +59,13 @@ export default function EmpleadoLayout() {
         }}
       />
       <Tabs.Screen
+        name="editar/[id]"
+        options={{
+          href: null,
+          tabBarStyle: { display: "none" },
+        }}
+      />
+      <Tabs.Screen
         name="seguimiento/[id]"
         options={{
           href: null,

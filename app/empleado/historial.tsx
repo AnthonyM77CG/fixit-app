@@ -15,6 +15,7 @@ import { useFocusEffect } from "expo-router";
 import { useAuth } from "../../src/context/AuthContext";
 import { incidenciaService } from "../../src/services/incidencia.service";
 import { IncidenciaResponse } from "../../src/models/incidencia.model";
+import { crearWebSocket } from "../../src/services/websocket.service";
 
 type Tab = "sinResolver" | "resueltos";
 
@@ -49,15 +50,9 @@ export default function HistorialScreen() {
   const [incidencias, setIncidencias] = useState<IncidenciaResponse[]>([]);
   const [cargando, setCargando] = useState(true);
 
-  useFocusEffect(
-    useCallback(() => {
-      cargarIncidencias();
-    }, []),
-  );
-
-  const cargarIncidencias = async () => {
+  const cargarIncidencias = async (mostrarSpinner = true) => {
     try {
-      setCargando(true);
+      if (mostrarSpinner) setCargando(true);
       const data = await incidenciaService.misIncidencias();
       setIncidencias(data);
     } catch (e: any) {
@@ -66,9 +61,18 @@ export default function HistorialScreen() {
       console.log("Error message:", e.message);
       Alert.alert("Error", "No se pudieron cargar las incidencias");
     } finally {
-      setCargando(false);
+      if (mostrarSpinner) setCargando(false);
     }
   };
+
+  useFocusEffect(
+    useCallback(() => {
+      cargarIncidencias(true);
+
+      const ws = crearWebSocket(() => cargarIncidencias(false));
+      return () => ws.close();
+    }, []),
+  );
 
   const handleCerrarSesion = async () => {
     await cerrarSesion();
@@ -238,10 +242,8 @@ const styles = StyleSheet.create({
   },
   botonCerrarTexto: { color: "#fff", fontSize: 12, fontWeight: "700" },
 
-  // Cambiado a padding general para coincidir con Perfil y Agregar
   scroll: { padding: 20, paddingBottom: 40 },
 
-  // Título idéntico con margen inferior controlado
   titulo: {
     fontSize: 28,
     fontWeight: "800",
@@ -253,7 +255,7 @@ const styles = StyleSheet.create({
   tabsContainer: {
     flexDirection: "row",
     backgroundColor: "#fff",
-    borderRadius: 12, // Le damos esquinas redondeadas para que juegue con las cards
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: "#e5e7eb",
     overflow: "hidden",
@@ -277,11 +279,11 @@ const styles = StyleSheet.create({
     borderRadius: 2,
   },
 
-  listaCardsContainer: { gap: 12 }, // Maneja la separación limpia entre tarjetas
+  listaCardsContainer: { gap: 12 },
 
   card: {
     backgroundColor: "#fff",
-    borderRadius: 16, // Aumentado a 16 para estilizarlo más premium
+    borderRadius: 16,
     padding: 16,
     borderLeftWidth: 4,
     shadowColor: "#000",
@@ -315,7 +317,7 @@ const styles = StyleSheet.create({
   badgeTexto: { fontSize: 12, fontWeight: "700" },
 
   vacio: {
-    paddingVertical: 60, // Espaciado centrado dentro del ScrollView
+    paddingVertical: 60,
     justifyContent: "center",
     alignItems: "center",
     gap: 12,
