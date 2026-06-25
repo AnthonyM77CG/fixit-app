@@ -9,7 +9,8 @@ export interface IncidenciaResponse {
   tipo: string;
   prioridad: string;
   detalle: string;
-  imagenes: string[];
+  imagenesEmpleado: string[];
+  imagenesTecnico: string[];
   estado: string;
   area: string;
   empleado: string;
