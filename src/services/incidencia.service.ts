@@ -14,15 +14,13 @@ const getAuthHeader = async () => {
 
 export const incidenciaService = {
   todasLasIncidencias: async (): Promise<IncidenciaResponse[]> => {
-    const headers = await getAuthHeader();
-    const res = await api.get("/api/incidencias", { headers });
+    const res = await api.get("/api/incidencias");
     return res.data;
   },
   crearIncidencia: async (
     request: IncidenciaRequest,
   ): Promise<{ mensaje: string; id: number }> => {
-    const headers = await getAuthHeader();
-    const res = await api.post("/api/incidencias", request, { headers });
+    const res = await api.post("/api/incidencias", request);
     return res.data;
   },
 
@@ -30,30 +28,24 @@ export const incidenciaService = {
     incidenciaId: number,
     tecnicoId: number,
   ): Promise<IncidenciaResponse> => {
-    const headers = await getAuthHeader();
-    const res = await api.put(
-      `/api/incidencias/${incidenciaId}/asignar`,
-      { tecnicoId },
-      { headers },
-    );
+    const res = await api.put(`/api/incidencias/${incidenciaId}/asignar`, {
+      tecnicoId,
+    });
     return res.data;
   },
 
   getDashboard: async (): Promise<any> => {
-    const headers = await getAuthHeader();
-    const res = await api.get("/api/incidencias/dashboard", { headers });
+    const res = await api.get("/api/incidencias/dashboard");
     return res.data;
   },
 
   misIncidencias: async (): Promise<IncidenciaResponse[]> => {
-    const headers = await getAuthHeader();
-    const res = await api.get("/api/incidencias/mis-incidencias", { headers });
+    const res = await api.get("/api/incidencias/mis-incidencias");
     return res.data;
   },
 
   misAsignaciones: async (): Promise<IncidenciaResponse[]> => {
-    const headers = await getAuthHeader();
-    const res = await api.get("/api/incidencias/mis-asignaciones", { headers });
+    const res = await api.get("/api/incidencias/mis-asignaciones");
     return res.data;
   },
 
