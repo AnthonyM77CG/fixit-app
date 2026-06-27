@@ -12,10 +12,11 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useFocusEffect } from "expo-router";
-import { useAuth } from "../../src/context/AuthContext";
-import { incidenciaService } from "../../src/services/incidencia.service";
-import { IncidenciaResponse } from "../../src/models/incidencia.model";
-import { crearWebSocket } from "../../src/services/websocket.service";
+import { useAuth } from "../../../src/context/AuthContext";
+import { incidenciaService } from "../../../src/services/incidencia.service";
+import { IncidenciaResponse } from "../../../src/models/incidencia.model";
+import { crearWebSocket } from "../../../src/services/websocket.service";
+import HeaderTecnico from "../../../src/components/tecnico/HeaderTecnico";
 
 const CYAN = "#0891b2";
 
@@ -64,21 +65,11 @@ export default function InicioTecnicoScreen() {
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity>
-          <View style={styles.notifContainer}>
-            <Ionicons name="notifications-outline" size={24} color="#374151" />
-            {incidencias.length > 0 && <View style={styles.notifDot} />}
-          </View>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.botonCerrar}
-          onPress={handleCerrarSesion}
-        >
-          <Ionicons name="log-out-outline" size={16} color="#fff" />
-          <Text style={styles.botonCerrarTexto}>CERRAR SESIÓN</Text>
-        </TouchableOpacity>
-      </View>
+      <HeaderTecnico
+        hasNotifications={incidencias.length > 0}
+        onNotifPress={() => router.push("/tecnico/notificaciones")}
+        onLogoutPress={handleCerrarSesion}
+      />
 
       <ScrollView
         contentContainerStyle={styles.scroll}

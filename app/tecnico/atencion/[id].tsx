@@ -193,7 +193,7 @@ export default function AtencionScreen() {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity
-          onPress={() => router.push("tecnico/asignados")}
+          onPress={() => router.back()}
           style={styles.botonVolver}
         >
           <Ionicons name="arrow-back" size={20} color="#374151" />
