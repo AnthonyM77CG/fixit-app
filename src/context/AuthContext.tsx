@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import * as SecureStore from "expo-secure-store";
 import { Usuario } from "../models/usuario.model";
+import { notificationService } from "../services/notification.service";
 
 interface AuthContextType {
   usuario: Usuario | null;
@@ -32,6 +33,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const guardarSesion = async (data: Usuario) => {
     await SecureStore.setItemAsync("usuario", JSON.stringify(data));
     setUsuario(data);
+
+    try {
+      await notificationService.registrar(data.id);
+    } catch (e) {
+      console.log("Error al registrar push token:", e);
+    }
   };
 
   const cerrarSesion = async () => {
