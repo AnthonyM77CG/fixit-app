@@ -293,6 +293,57 @@ export default function EmpleadoDetalleScreen() {
             );
           })}
         </View>
+
+        {/* Acciones */}
+        {incidencia.estado === "PENDIENTE" && (
+          <View style={styles.accionesContainer}>
+            <TouchableOpacity
+              style={[styles.botonAccion, styles.botonEditar]}
+              onPress={() => router.push(`/empleado/editar/${incidencia.id}`)}
+            >
+              <Ionicons name="create-outline" size={20} color="#fff" />
+              <Text style={styles.botonTexto}>Editar</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.botonAccion, styles.botonEliminar]}
+              onPress={() =>
+                Alert.alert(
+                  "Eliminar incidencia",
+                  "¿Estás seguro de que deseas eliminar esta incidencia?",
+                  [
+                    {
+                      text: "Cancelar",
+                      style: "cancel",
+                    },
+                    {
+                      text: "Eliminar",
+                      style: "destructive",
+                      onPress: async () => {
+                        try {
+                          await incidenciaService.eliminar(incidencia.id);
+                          Alert.alert(
+                            "Éxito",
+                            "La incidencia fue eliminada correctamente.",
+                          );
+                          router.back();
+                        } catch (error) {
+                          Alert.alert(
+                            "Error",
+                            "No se pudo eliminar la incidencia.",
+                          );
+                        }
+                      },
+                    },
+                  ],
+                )
+              }
+            >
+              <Ionicons name="trash-outline" size={20} color="#fff" />
+              <Text style={styles.botonTexto}>Eliminar</Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -417,4 +468,31 @@ const styles = StyleSheet.create({
   },
   imagenAmpliada: { width: "90%", height: "70%" },
   cerrarModal: { position: "absolute", top: 50, right: 20 },
+  accionesContainer: {
+    flexDirection: "row",
+    gap: 12,
+    marginTop: 8,
+    marginBottom: 20,
+  },
+
+  botonAccion: {
+    flex: 1,
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingVertical: 14,
+    borderRadius: 12,
+    gap: 8,
+  },
+  botonEditar: {
+    backgroundColor: "#16a34a",
+  },
+  botonEliminar: {
+    backgroundColor: "#ef4444",
+  },
+  botonTexto: {
+    color: "#fff",
+    fontSize: 15,
+    fontWeight: "700",
+  },
 });
