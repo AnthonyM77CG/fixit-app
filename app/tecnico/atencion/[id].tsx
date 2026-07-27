@@ -115,7 +115,7 @@ export default function AtencionScreen() {
     if (!comentarioValido && !imagenesValidas) {
       Alert.alert(
         "Validación",
-        "Por favor, ingresa un comentario y  al menos una imagen de evidencia para cerrar el ticket.",
+        "Por favor, ingresa un comentario y al menos una imagen de evidencia para cerrar la incidencia.",
       );
       return;
     }
@@ -131,13 +131,13 @@ export default function AtencionScreen() {
     if (!imagenesValidas) {
       Alert.alert(
         "Validación",
-        "Debes adjuntar al menos una imagen de evidencia para cerrar el ticket.",
+        "Debes adjuntar al menos una imagen de evidencia para cerrar la incidencia.",
       );
       return;
     }
 
     Alert.alert(
-      "Cerrar Ticket",
+      "Cerrar Incidencia",
       "¿Estás seguro que deseas marcar esta incidencia como resuelta?",
       [
         { text: "Cancelar", style: "cancel" },
@@ -156,19 +156,19 @@ export default function AtencionScreen() {
         imagenes,
       );
       Alert.alert(
-        "¡Ticket Cerrado!",
+        "¡Incidencia Cerrada!",
         "La incidencia fue marcada como resuelta",
         [
           {
             text: "OK",
-            onPress: () => router.replace("tecnico/asignados"),
+            onPress: () => router.replace("tecnico/tabs/asignados"),
           },
         ],
       );
     } catch (e: any) {
       Alert.alert(
         "Error",
-        e.response?.data?.error || "No se pudo cerrar el ticket",
+        e.response?.data?.error || "No se pudo cerrar la incidencia",
       );
     } finally {
       setGuardando(false);
@@ -187,6 +187,16 @@ export default function AtencionScreen() {
 
   const esPendiente = incidencia.estado === "PENDIENTE";
   const esEnProceso = incidencia.estado === "EN_PROCESO";
+  const esResuelto = incidencia.estado === "RESUELTO";
+
+  // Extrae el comentario de resolución desde la lista de seguimientos
+  const ultimoSeguimiento =
+    incidencia.seguimientos && incidencia.seguimientos.length > 0
+      ? incidencia.seguimientos[incidencia.seguimientos.length - 1]
+      : null;
+
+  const comentarioResolucion =
+    ultimoSeguimiento?.comentario || ultimoSeguimiento?.comentario;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -233,10 +243,11 @@ export default function AtencionScreen() {
         contentContainerStyle={styles.scroll}
         keyboardShouldPersistTaps="handled"
       >
-        {/* Problema reportado */}
+        {/* Card Principal */}
         <View style={styles.card}>
           <Text style={styles.seccionLabel}>PROBLEMA REPORTADO</Text>
           <Text style={styles.detalleTexto}>{incidencia.detalle}</Text>
+
           <View style={styles.infoFila}>
             <View style={styles.infoItem}>
               <Text style={styles.infoLabel}>Tipo</Text>
@@ -247,6 +258,7 @@ export default function AtencionScreen() {
               <Text style={styles.infoValor}>{incidencia.prioridad}</Text>
             </View>
           </View>
+
           <View style={styles.infoFila}>
             <View style={styles.infoItem}>
               <Text style={styles.infoLabel}>Área</Text>
@@ -258,7 +270,7 @@ export default function AtencionScreen() {
             </View>
           </View>
 
-          {/* ✅ Imágenes del empleado */}
+          {/* Evidencia del empleado */}
           {incidencia.imagenesEmpleado &&
             incidencia.imagenesEmpleado.length > 0 && (
               <View style={styles.imagenesContainer}>
@@ -284,32 +296,52 @@ export default function AtencionScreen() {
               </View>
             )}
 
-          {/* ✅ Imágenes del técnico — solo si está resuelto */}
-          {incidencia.estado === "RESUELTO" &&
-            incidencia.imagenesTecnico &&
-            incidencia.imagenesTecnico.length > 0 && (
-              <View style={styles.imagenesContainer}>
-                <Text style={styles.imagenLabel}>Evidencia del técnico:</Text>
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  style={{ marginTop: 8 }}
-                >
-                  {incidencia.imagenesTecnico.map((url, index) => (
-                    <TouchableOpacity
-                      key={index}
-                      onPress={() => setImagenAmpliada(url)}
-                      style={{ marginRight: 8 }}
+          {/* 🟢 SECCIÓN DE RESOLUCIÓN (Sólo en estado RESUELTO) */}
+          {esResuelto && (
+            <View style={styles.comentarioResueltoContainer}>
+              <Text style={styles.seccionLabel}>SOLUCIÓN APLICADA</Text>
+
+              {comentarioResolucion && (
+                <View style={{ marginTop: 8 }}>
+                  <Text style={styles.imagenLabel}>
+                    Comentario del técnico:
+                  </Text>
+                  <Text
+                    style={[styles.comentarioResueltoTexto, { marginTop: 4 }]}
+                  >
+                    {comentarioResolucion}
+                  </Text>
+                </View>
+              )}
+
+              {incidencia.imagenesTecnico &&
+                incidencia.imagenesTecnico.length > 0 && (
+                  <View style={{ marginTop: 16 }}>
+                    <Text style={styles.imagenLabel}>
+                      Evidencia del técnico:
+                    </Text>
+                    <ScrollView
+                      horizontal
+                      showsHorizontalScrollIndicator={false}
+                      style={{ marginTop: 8 }}
                     >
-                      <Image
-                        source={{ uri: url }}
-                        style={styles.imagenMiniatura}
-                      />
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              </View>
-            )}
+                      {incidencia.imagenesTecnico.map((url, index) => (
+                        <TouchableOpacity
+                          key={index}
+                          onPress={() => setImagenAmpliada(url)}
+                          style={{ marginRight: 8 }}
+                        >
+                          <Image
+                            source={{ uri: url }}
+                            style={styles.imagenMiniatura}
+                          />
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                  </View>
+                )}
+            </View>
+          )}
         </View>
 
         {/* PENDIENTE — botón tomar incidencia */}
@@ -333,7 +365,6 @@ export default function AtencionScreen() {
         {/* EN_PROCESO — formulario de resolución */}
         {esEnProceso && (
           <>
-            {/* Comentario técnico */}
             <View style={styles.card}>
               <Text style={styles.seccionLabel}>COMENTARIO TÉCNICO</Text>
               <TextInput
@@ -349,7 +380,6 @@ export default function AtencionScreen() {
               />
             </View>
 
-            {/* Foto de evidencia */}
             <View style={styles.card}>
               <Text style={styles.seccionLabel}>FOTO DE EVIDENCIA</Text>
               <View style={styles.botonesImagen}>
@@ -363,6 +393,7 @@ export default function AtencionScreen() {
                   </View>
                   <Text style={styles.botonImagenTexto}>Tomar Foto</Text>
                 </TouchableOpacity>
+
                 <TouchableOpacity
                   style={styles.botonImagen}
                   onPress={seleccionarImagen}
@@ -406,7 +437,6 @@ export default function AtencionScreen() {
               )}
             </View>
 
-            {/* Botón cerrar ticket */}
             <TouchableOpacity
               style={[styles.botonCerrar, guardando && styles.botonDesactivado]}
               onPress={handleCerrarTicket}
@@ -421,15 +451,15 @@ export default function AtencionScreen() {
                     size={20}
                     color="#fff"
                   />
-                  <Text style={styles.botonCerrarTexto}>Cerrar Ticket</Text>
+                  <Text style={styles.botonCerrarTexto}>Cerrar Incidencia</Text>
                 </>
               )}
             </TouchableOpacity>
           </>
         )}
 
-        {/* RESUELTO — solo lectura */}
-        {incidencia.estado === "RESUELTO" && (
+        {/* RESUELTO — Banner */}
+        {esResuelto && (
           <View style={styles.card}>
             <View style={styles.resueltoBanner}>
               <Ionicons name="checkmark-circle" size={32} color="#16a34a" />
@@ -478,7 +508,7 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: "#9ca3af",
     letterSpacing: 1,
-    marginBottom: 12,
+    marginBottom: 8,
   },
   detalleTexto: {
     fontSize: 14,
@@ -498,6 +528,20 @@ const styles = StyleSheet.create({
   imagenesContainer: { marginTop: 12 },
   imagenLabel: { fontSize: 12, color: "#6b7280" },
   imagenMiniatura: { width: 80, height: 80, borderRadius: 8 },
+  comentarioResueltoContainer: {
+    marginTop: 16,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: "#f3f4f6",
+  },
+  comentarioResueltoTexto: {
+    fontSize: 14,
+    color: "#1f2937",
+    backgroundColor: "#f9fafb",
+    padding: 12,
+    borderRadius: 8,
+    lineHeight: 20,
+  },
   botonTomar: {
     flexDirection: "row",
     alignItems: "center",
@@ -506,10 +550,6 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     height: 56,
     gap: 8,
-    shadowColor: "#16a34a",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 5,
     elevation: 4,
   },
   botonTomarTexto: { color: "#fff", fontSize: 16, fontWeight: "700" },
@@ -550,10 +590,6 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     height: 56,
     gap: 8,
-    shadowColor: "#ef4444",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 5,
     elevation: 4,
   },
   botonDesactivado: { backgroundColor: "#9ca3af" },

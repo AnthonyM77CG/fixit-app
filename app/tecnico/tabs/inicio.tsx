@@ -16,7 +16,8 @@ import { useAuth } from "../../../src/context/AuthContext";
 import { incidenciaService } from "../../../src/services/incidencia.service";
 import { IncidenciaResponse } from "../../../src/models/incidencia.model";
 import { crearWebSocket } from "../../../src/services/websocket.service";
-import HeaderTecnico from "../../../src/components/tecnico/HeaderTecnico";
+import HeaderUsuario from "../../../src/components/headers/HeaderUsuario";
+import { useNotificaciones } from "../../../src/context/NotificacionContext";
 
 const CYAN = "#0891b2";
 
@@ -25,6 +26,7 @@ export default function InicioTecnicoScreen() {
   const { usuario, cerrarSesion } = useAuth();
   const [incidencias, setIncidencias] = useState<IncidenciaResponse[]>([]);
   const [cargando, setCargando] = useState(true);
+  const { onDataUpdate } = useNotificaciones();
 
   const cargarTicketsAsignados = async (mostrarSpinner = true) => {
     try {
@@ -45,8 +47,10 @@ export default function InicioTecnicoScreen() {
     useCallback(() => {
       cargarTicketsAsignados(true);
 
-      const ws = crearWebSocket(() => cargarTicketsAsignados(false));
-      return () => ws.close();
+      onDataUpdate.current = () => cargarTicketsAsignados(false);
+      return () => {
+        onDataUpdate.current = null;
+      };
     }, []),
   );
 
@@ -65,8 +69,7 @@ export default function InicioTecnicoScreen() {
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       {/* Header */}
-      <HeaderTecnico
-        hasNotifications={incidencias.length > 0}
+      <HeaderUsuario
         onNotifPress={() => router.push("/tecnico/notificaciones")}
         onLogoutPress={handleCerrarSesion}
       />

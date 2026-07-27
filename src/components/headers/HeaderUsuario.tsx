@@ -2,24 +2,31 @@ import React from "react";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import { useNotificaciones } from "../../context/NotificacionContext";
 
 interface HeaderUsuarioProps {
-  hasNotifications: boolean;
   onNotifPress: () => void;
   onLogoutPress: () => void;
 }
 
-export default function HeaderTecnico({
-  hasNotifications,
+export default function HeaderUsuario({
   onNotifPress,
   onLogoutPress,
-}: HeaderUsuarioProps) {
+}: Omit<HeaderUsuarioProps, "hasNotifications">) {
+  const { tieneNotificaciones, setTieneNotificaciones } = useNotificaciones();
+
+  console.log("Header:", tieneNotificaciones);
+
+  const handleNotifPress = () => {
+    setTieneNotificaciones(false);
+    onNotifPress();
+  };
   return (
     <View style={styles.header}>
-      <TouchableOpacity onPress={onNotifPress}>
+      <TouchableOpacity onPress={handleNotifPress}>
         <View style={styles.notifContainer}>
           <Ionicons name="notifications-outline" size={24} color="#374151" />
-          {hasNotifications && <View style={styles.notifDot} />}
+          {tieneNotificaciones && <View style={styles.notifDot} />}
         </View>
       </TouchableOpacity>
 

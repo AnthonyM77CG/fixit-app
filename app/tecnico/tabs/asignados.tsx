@@ -16,7 +16,8 @@ import { useAuth } from "../../../src/context/AuthContext";
 import { incidenciaService } from "../../../src/services/incidencia.service";
 import { IncidenciaResponse } from "../../../src/models/incidencia.model";
 import { crearWebSocket } from "../../../src/services/websocket.service";
-import HeaderTecnico from "../../../src/components/tecnico/HeaderTecnico";
+import HeaderUsuario from "../../../src/components/headers/HeaderUsuario";
+import { useNotificaciones } from "../../../src/context/NotificacionContext";
 
 type TabTecnico = "porAtender" | "enCurso" | "resueltos";
 
@@ -50,13 +51,15 @@ export default function AsignadasTecnicoScreen() {
   const [tab, setTab] = useState<TabTecnico>("porAtender");
   const [incidencias, setIncidencias] = useState<IncidenciaResponse[]>([]);
   const [cargando, setCargando] = useState(true);
+  const { onDataUpdate } = useNotificaciones();
 
   useFocusEffect(
     useCallback(() => {
       cargarIncidenciasAsignadas(true);
-
-      const ws = crearWebSocket(() => cargarIncidenciasAsignadas(false));
-      return () => ws.close();
+      onDataUpdate.current = () => cargarIncidenciasAsignadas(false);
+      return () => {
+        onDataUpdate.current = null;
+      };
     }, []),
   );
 
@@ -99,8 +102,7 @@ export default function AsignadasTecnicoScreen() {
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       {/* Header */}
-      <HeaderTecnico
-        hasNotifications={incidencias.length > 0}
+      <HeaderUsuario
         onNotifPress={() => router.push("/tecnico/notificaciones")}
         onLogoutPress={handleCerrarSesion}
       />

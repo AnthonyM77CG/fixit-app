@@ -12,10 +12,12 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useFocusEffect } from "expo-router";
-import { useAuth } from "../../src/context/AuthContext";
-import { incidenciaService } from "../../src/services/incidencia.service";
-import { IncidenciaResponse } from "../../src/models/incidencia.model";
-import { crearWebSocket } from "../../src/services/websocket.service";
+import { useAuth } from "../../../src/context/AuthContext";
+import { incidenciaService } from "../../../src/services/incidencia.service";
+import { IncidenciaResponse } from "../../../src/models/incidencia.model";
+import { crearWebSocket } from "../../../src/services/websocket.service";
+import HeaderUsuario from "../../../src/components/headers/HeaderUsuario";
+import { useNotificaciones } from "../../../src/context/NotificacionContext";
 
 export default function InicioScreen() {
   const router = useRouter();
@@ -23,15 +25,18 @@ export default function InicioScreen() {
   const [incidencias, setIncidencias] = useState<IncidenciaResponse[]>([]);
   const [cargando, setCargando] = useState(true);
   const [mostrarAlerta, setMostrarAlerta] = useState(true);
+  const { onDataUpdate } = useNotificaciones();
 
   useFocusEffect(
     useCallback(() => {
       cargarDatosDashboard(true);
 
-      const ws = crearWebSocket(() => cargarDatosDashboard(false));
+      onDataUpdate.current = () => {
+        cargarDatosDashboard(false);
+      };
 
       return () => {
-        if (ws) ws.close();
+        onDataUpdate.current = null;
       };
     }, []),
   );
@@ -68,22 +73,11 @@ export default function InicioScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
-      {/* Header - Idéntico al de Historial */}
-      <View style={styles.header}>
-        <TouchableOpacity>
-          <View style={styles.notifContainer}>
-            <Ionicons name="notifications-outline" size={24} color="#374151" />
-            <View style={styles.notifDot} />
-          </View>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.botonCerrar}
-          onPress={handleCerrarSesion}
-        >
-          <Ionicons name="log-out-outline" size={16} color="#fff" />
-          <Text style={styles.botonCerrarTexto}>CERRAR SESIÓN</Text>
-        </TouchableOpacity>
-      </View>
+      {/* Header */}
+      <HeaderUsuario
+        onNotifPress={() => router.push("/empleado/notificaciones")}
+        onLogoutPress={handleCerrarSesion}
+      />
 
       <ScrollView
         contentContainerStyle={styles.scroll}

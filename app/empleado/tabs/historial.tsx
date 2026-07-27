@@ -12,10 +12,12 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useFocusEffect } from "expo-router";
-import { useAuth } from "../../src/context/AuthContext";
-import { incidenciaService } from "../../src/services/incidencia.service";
-import { IncidenciaResponse } from "../../src/models/incidencia.model";
-import { crearWebSocket } from "../../src/services/websocket.service";
+import { useAuth } from "../../../src/context/AuthContext";
+import { incidenciaService } from "../../../src/services/incidencia.service";
+import { IncidenciaResponse } from "../../../src/models/incidencia.model";
+import { crearWebSocket } from "../../../src/services/websocket.service";
+import HeaderUsuario from "../../../src/components/headers/HeaderUsuario";
+import { useNotificaciones } from "../../../src/context/NotificacionContext";
 
 type Tab = "sinResolver" | "resueltos";
 
@@ -49,6 +51,7 @@ export default function HistorialScreen() {
   const [tab, setTab] = useState<Tab>("sinResolver");
   const [incidencias, setIncidencias] = useState<IncidenciaResponse[]>([]);
   const [cargando, setCargando] = useState(true);
+  const { onDataUpdate } = useNotificaciones();
 
   const cargarIncidencias = async (mostrarSpinner = true) => {
     try {
@@ -69,8 +72,11 @@ export default function HistorialScreen() {
     useCallback(() => {
       cargarIncidencias(true);
 
-      const ws = crearWebSocket(() => cargarIncidencias(false));
-      return () => ws.close();
+      onDataUpdate.current = () => cargarIncidencias(false);
+
+      return () => {
+        onDataUpdate.current = null;
+      };
     }, []),
   );
 
@@ -94,21 +100,10 @@ export default function HistorialScreen() {
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity>
-          <View style={styles.notifContainer}>
-            <Ionicons name="notifications-outline" size={24} color="#374151" />
-            <View style={styles.notifDot} />
-          </View>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.botonCerrar}
-          onPress={handleCerrarSesion}
-        >
-          <Ionicons name="log-out-outline" size={16} color="#fff" />
-          <Text style={styles.botonCerrarTexto}>CERRAR SESIÓN</Text>
-        </TouchableOpacity>
-      </View>
+      <HeaderUsuario
+        onNotifPress={() => router.push("/empleado/notificaciones")}
+        onLogoutPress={handleCerrarSesion}
+      />
 
       <ScrollView
         contentContainerStyle={styles.scroll}

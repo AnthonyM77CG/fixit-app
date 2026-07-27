@@ -12,31 +12,43 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useFocusEffect } from "expo-router";
-import { useAuth } from "../../src/context/AuthContext";
-import { incidenciaService } from "../../src/services/incidencia.service";
-import { IncidenciaResponse } from "../../src/models/incidencia.model";
+import { useAuth } from "../../../src/context/AuthContext";
+import { incidenciaService } from "../../../src/services/incidencia.service";
+import { IncidenciaResponse } from "../../../src/models/incidencia.model";
+import HeaderUsuario from "../../../src/components/headers/HeaderUsuario";
+import { useNotificaciones } from "../../../src/context/NotificacionContext";
 
 export default function PerfilScreen() {
   const router = useRouter();
   const { usuario, cerrarSesion } = useAuth();
   const [incidencias, setIncidencias] = useState<IncidenciaResponse[]>([]);
   const [cargando, setCargando] = useState(true);
+  const { onDataUpdate } = useNotificaciones();
 
   useFocusEffect(
     useCallback(() => {
-      cargarIncidencias();
+      cargarIncidencias(true);
+
+      onDataUpdate.current = () => cargarIncidencias(false);
+
+      return () => {
+        onDataUpdate.current = null;
+      };
     }, []),
   );
 
-  const cargarIncidencias = async () => {
+  const cargarIncidencias = async (mostrarSpinner = true) => {
     try {
-      setCargando(true);
+      if (mostrarSpinner) setCargando(true);
       const data = await incidenciaService.misIncidencias();
       setIncidencias(data);
-    } catch (e) {
-      Alert.alert("Error", "No se pudieron cargar las estadísticas");
+    } catch (e: any) {
+      console.log("Error status:", e.response?.status);
+      console.log("Error data:", JSON.stringify(e.response?.data));
+      console.log("Error message:", e.message);
+      Alert.alert("Error", "No se pudieron cargar las incidencias");
     } finally {
-      setCargando(false);
+      if (mostrarSpinner) setCargando(false);
     }
   };
 
@@ -52,21 +64,10 @@ export default function PerfilScreen() {
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity>
-          <View style={styles.notifContainer}>
-            <Ionicons name="notifications-outline" size={24} color="#374151" />
-            <View style={styles.notifDot} />
-          </View>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.botonCerrar}
-          onPress={handleCerrarSesion}
-        >
-          <Ionicons name="log-out-outline" size={16} color="#fff" />
-          <Text style={styles.botonCerrarTexto}>CERRAR SESIÓN</Text>
-        </TouchableOpacity>
-      </View>
+      <HeaderUsuario
+        onNotifPress={() => router.push("/empleado/notificaciones")}
+        onLogoutPress={handleCerrarSesion}
+      />
 
       <ScrollView contentContainerStyle={styles.scroll}>
         <Text style={styles.titulo}>Mi Perfil</Text>
@@ -120,12 +121,6 @@ export default function PerfilScreen() {
               </View>
             </View>
           </View>
-
-          {/* Botón editar */}
-          <TouchableOpacity style={styles.botonEditar}>
-            <Ionicons name="create-outline" size={18} color="#fff" />
-            <Text style={styles.botonEditarTexto}>Editar Perfil</Text>
-          </TouchableOpacity>
         </View>
 
         {/* Estadísticas */}

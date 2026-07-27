@@ -15,10 +15,12 @@ import { Picker } from "@react-native-picker/picker";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
-import { useAuth } from "../../src/context/AuthContext";
-import { incidenciaService } from "../../src/services/incidencia.service";
-import { tipoIncidenciaService } from "../../src/services/tipo-incidencia.service";
-import { TipoIncidencia } from "../../src/models/tipo-incidencia.model";
+import { useAuth } from "../../../src/context/AuthContext";
+import { incidenciaService } from "../../../src/services/incidencia.service";
+import { tipoIncidenciaService } from "../../../src/services/tipo-incidencia.service";
+import { TipoIncidencia } from "../../../src/models/tipo-incidencia.model";
+import { IncidenciaResponse } from "../../../src/models/incidencia.model";
+import HeaderUsuario from "../../../src/components/headers/HeaderUsuario";
 
 export default function AgregarScreen() {
   const router = useRouter();
@@ -26,6 +28,7 @@ export default function AgregarScreen() {
   const [cargando, setCargando] = useState(false);
   const [tipos, setTipos] = useState<TipoIncidencia[]>([]);
   const [imagenes, setImagenes] = useState<string[]>([]);
+  const [incidencias, setIncidencias] = useState<IncidenciaResponse[]>([]);
 
   const [form, setForm] = useState({
     tipoId: 0,
@@ -35,7 +38,17 @@ export default function AgregarScreen() {
 
   useEffect(() => {
     cargarTipos();
+    cargarIncidenciasParaNotificaciones();
   }, []);
+
+  const cargarIncidenciasParaNotificaciones = async () => {
+    try {
+      const data = await incidenciaService.misIncidencias();
+      setIncidencias(data);
+    } catch (e) {
+      console.log("No se pudieron cargar incidencias para el header", e);
+    }
+  };
 
   const cargarTipos = async () => {
     try {
@@ -58,7 +71,7 @@ export default function AgregarScreen() {
     }
     const result = await ImagePicker.launchCameraAsync({
       base64: true,
-      quality: 0.7,
+      quality: 0.5,
     });
     if (!result.canceled && result.assets[0].base64) {
       setImagenes([...imagenes, result.assets[0].base64]);
@@ -119,7 +132,7 @@ export default function AgregarScreen() {
       Alert.alert("¡Listo!", "Incidencia registrada correctamente", [
         {
           text: "Ver historial",
-          onPress: () => router.push("/empleado/historial"),
+          onPress: () => router.push("/empleado/tabs/historial"),
         },
       ]);
 
@@ -138,21 +151,10 @@ export default function AgregarScreen() {
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity>
-          <View style={styles.notifContainer}>
-            <Ionicons name="notifications-outline" size={24} color="#374151" />
-            <View style={styles.notifDot} />
-          </View>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.botonCerrar}
-          onPress={handleCerrarSesion}
-        >
-          <Ionicons name="log-out-outline" size={16} color="#fff" />
-          <Text style={styles.botonCerrarTexto}>CERRAR SESIÓN</Text>
-        </TouchableOpacity>
-      </View>
+      <HeaderUsuario
+        onNotifPress={() => router.push("/empleado/notificaciones")}
+        onLogoutPress={handleCerrarSesion}
+      />
 
       <ScrollView
         contentContainerStyle={styles.scroll}

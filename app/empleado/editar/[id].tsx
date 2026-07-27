@@ -87,11 +87,22 @@ export default function EditarIncidenciaScreen() {
       Alert.alert("Límite", "Puedes tener máximo 3 imágenes");
       return;
     }
+
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert(
+        "Permiso denegado",
+        "Necesitamos permiso para acceder a tu galería de fotos.",
+      );
+      return;
+    }
+
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       base64: true,
-      quality: 0.7,
+      quality: 0.5, //
     });
+
     if (!result.canceled && result.assets[0].base64) {
       setImagenesNuevas([...imagenesNuevas, result.assets[0].base64]);
     }
@@ -102,10 +113,21 @@ export default function EditarIncidenciaScreen() {
       Alert.alert("Límite", "Puedes tener máximo 3 imágenes");
       return;
     }
+
+    const permission = await ImagePicker.requestCameraPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert(
+        "Permiso denegado",
+        "Necesitamos acceso a la cámara para tomar fotos.",
+      );
+      return;
+    }
+
     const result = await ImagePicker.launchCameraAsync({
       base64: true,
-      quality: 0.7,
+      quality: 0.5, // 💡 Calidad balanceada para evitar cierres en la cámara
     });
+
     if (!result.canceled && result.assets[0].base64) {
       setImagenesNuevas([...imagenesNuevas, result.assets[0].base64]);
     }
@@ -145,18 +167,12 @@ export default function EditarIncidenciaScreen() {
 
     setGuardando(true);
     try {
-      const imagenesParaEnviar =
-        imagenesNuevas.length > 0 ||
-        imagenesExistentes.length !==
-          (incidencia?.imagenesEmpleado?.length ?? 0)
-          ? imagenesNuevas
-          : [];
-
       await incidenciaService.actualizar(Number(id), {
         tipoId: form.tipoId,
         prioridad: form.prioridad,
         detalle: form.detalle,
-        imagenesBase64: imagenesParaEnviar,
+        imagenesExistentes: imagenesExistentes, // 🟢 Le dice a Java qué URLs no debe borrar
+        imagenesBase64: imagenesNuevas,
       });
 
       Alert.alert("¡Listo!", "Incidencia actualizada correctamente", [

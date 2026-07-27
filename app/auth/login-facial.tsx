@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -24,13 +24,22 @@ export default function LoginFaceScreen() {
   const [permission, requestPermission] = useCameraPermissions();
   const [cargando, setCargando] = useState(false);
 
+  // Bandera de seguridad para evitar actualizar estado si el usuario sale de la pantalla
+  const isMounted = useRef(true);
+
+  useEffect(() => {
+    isMounted.current = true;
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
+
   if (!permission)
     return <View style={{ flex: 1, backgroundColor: "#f3f4f6" }} />;
 
   if (!permission.granted) {
     return (
       <SafeAreaView style={styles.permisoContainer}>
-        {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity
             onPress={() =>
@@ -68,20 +77,39 @@ export default function LoginFaceScreen() {
   }
 
   const handleLogin = async () => {
-    if (!cameraRef.current) return;
-    setCargando(true);
+    // 🛡️ Blindaje 1: Validar si la referencia de la cámara existe antes de usarla
+    if (!cameraRef.current) {
+      Alert.alert(
+        "Atención",
+        "La cámara no está lista todavía. Espera un momento.",
+      );
+      return;
+    }
+
+    if (cargando) return; // Evitar doble pulsación
+
+    if (isMounted.current) setCargando(true);
+
     try {
       const foto = await cameraRef.current.takePictureAsync({
         base64: true,
         quality: 0.6,
       });
-      let base64 = foto.base64 ?? "";
+
+      // 🛡️ Blindaje 2: Validar que la foto se haya tomado correctamente
+      if (!foto || !foto.base64) {
+        throw new Error("No se pudo capturar la imagen de la cámara.");
+      }
+
+      let base64 = foto.base64;
       if (base64.includes(",")) base64 = base64.split(",")[1];
 
       let data;
       try {
         data = await authService.loginFace({ imagen: base64 });
       } catch (e: any) {
+        if (!isMounted.current) return;
+
         if (e.response?.status === 400) {
           Alert.alert(
             "⚠️ Sin rostro detectado",
@@ -99,28 +127,33 @@ export default function LoginFaceScreen() {
         throw e;
       }
 
+      if (!isMounted.current) return;
       await guardarSesion(data);
 
       switch (data.rol) {
         case "Administrador":
-          router.replace("/administrador/inicio");
+          router.replace("/administrador/tabs/inicio");
           break;
         case "Tecnico":
-          router.replace("/tecnico/inicio");
+          router.replace("/tecnico/tabs/inicio");
           break;
         case "Empleado":
-          router.replace("/empleado/inicio");
+          router.replace("/empleado/tabs/inicio");
           break;
         default:
           router.replace("/auth/metodo-login");
       }
     } catch (e: any) {
-      Alert.alert(
-        "Error",
-        "Ocurrió un problema al procesar la imagen. Intenta de nuevo.",
-      );
+      if (isMounted.current) {
+        Alert.alert(
+          "Error",
+          "Ocurrió un problema al procesar la imagen. Intenta de nuevo.",
+        );
+      }
     } finally {
-      setCargando(false);
+      if (isMounted.current) {
+        setCargando(false);
+      }
     }
   };
 
@@ -181,7 +214,6 @@ export default function LoginFaceScreen() {
 }
 
 const styles = StyleSheet.create({
-  // Pantalla de cámara
   container: { flex: 1, backgroundColor: "#000" },
   overlay: {
     ...StyleSheet.absoluteFillObject,
@@ -193,7 +225,7 @@ const styles = StyleSheet.create({
     width: width * 0.7,
     height: width * 0.9,
     borderWidth: 2,
-    borderColor: "#16a34a", // ✅ verde en vez de azul
+    borderColor: "#16a34a",
     borderRadius: 150,
     borderStyle: "dashed",
     backgroundColor: "transparent",
@@ -227,7 +259,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     height: 56,
-    backgroundColor: "#16a34a", // ✅ verde
+    backgroundColor: "#16a34a",
     borderRadius: 16,
     gap: 8,
     shadowColor: "#000",
@@ -243,8 +275,6 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     letterSpacing: 0.5,
   },
-
-  // Pantalla de permisos
   permisoContainer: { flex: 1, backgroundColor: "#f3f4f6" },
   header: {
     flexDirection: "row",

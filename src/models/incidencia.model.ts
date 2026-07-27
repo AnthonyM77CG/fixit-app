@@ -25,4 +25,5 @@ export interface IncidenciaRequest {
   prioridad: string;
   detalle: string;
   imagenesBase64: string[];
+  imagenesExistentes?: string[];
 }

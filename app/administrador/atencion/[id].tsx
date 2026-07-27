@@ -124,7 +124,7 @@ export default function AdminDetalleScreen() {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity
-          onPress={() => router.push("/administrador/incidencias")}
+          onPress={() => router.back()}
           style={styles.botonVolver}
         >
           <Ionicons name="arrow-back" size={20} color="#374151" />

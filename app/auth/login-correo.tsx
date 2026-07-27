@@ -42,13 +42,13 @@ export default function LoginCorreoScreen() {
 
       switch (data.rol) {
         case "Administrador":
-          router.replace("/administrador/inicio");
+          router.replace("/administrador/tabs/inicio");
           break;
         case "Tecnico":
-          router.replace("/tecnico/inicio");
+          router.replace("/tecnico/tabs/inicio");
           break;
         case "Empleado":
-          router.replace("/empleado/inicio");
+          router.replace("/empleado/tabs/inicio");
           break;
         default:
           router.replace("/auth/metodo-login");
@@ -132,7 +132,7 @@ export default function LoginCorreoScreen() {
                 placeholderTextColor="#9ca3af"
                 value={contraseña}
                 onChangeText={setContraseña}
-                secureTextEntry={!verContraseña}
+                secureTextEntry={false}
                 onFocus={() => setIsPassFocused(true)}
                 onBlur={() => setIsPassFocused(false)}
                 editable={!cargando}

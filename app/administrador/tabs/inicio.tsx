@@ -16,9 +16,10 @@ import { useFocusEffect } from "expo-router";
 import { BarChart } from "react-native-chart-kit";
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
-import { useAuth } from "../../src/context/AuthContext";
-import { incidenciaService } from "../../src/services/incidencia.service";
-import { crearWebSocket } from "../../src/services/websocket.service";
+import { useAuth } from "../../../src/context/AuthContext";
+import { incidenciaService } from "../../../src/services/incidencia.service";
+import HeaderAdmin from "../../../src/components/headers/HeaderAdmin";
+import { useNotificaciones } from "../../../src/context/NotificacionContext";
 
 const { width } = Dimensions.get("window");
 
@@ -46,6 +47,7 @@ export default function AdminInicioScreen() {
   const [dashboard, setDashboard] = useState<any>(null);
   const [cargando, setCargando] = useState(true);
   const [generandoPDF, setGenerandoPDF] = useState(false);
+  const { onDataUpdate } = useNotificaciones();
 
   const cargarDashboard = async (mostrarSpinner = true) => {
     try {
@@ -63,8 +65,11 @@ export default function AdminInicioScreen() {
     useCallback(() => {
       cargarDashboard(true);
 
-      const ws = crearWebSocket(() => cargarDashboard(false));
-      return () => ws.close();
+      onDataUpdate.current = () => cargarDashboard(false);
+
+      return () => {
+        onDataUpdate.current = null;
+      };
     }, []),
   );
 
@@ -309,41 +314,13 @@ export default function AdminInicioScreen() {
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity>
-          <View style={styles.notifContainer}>
-            <Ionicons name="notifications-outline" size={24} color="#374151" />
-            <View style={styles.notifDot} />
-          </View>
-        </TouchableOpacity>
-
-        <View style={styles.headerBotones}>
-          {/* Botón PDF */}
-          <TouchableOpacity
-            style={[styles.botonPDF, generandoPDF && styles.botonDesactivado]}
-            onPress={generarPDF}
-            disabled={generandoPDF || cargando}
-          >
-            {generandoPDF ? (
-              <ActivityIndicator color="#fff" size="small" />
-            ) : (
-              <>
-                <Ionicons name="document-text-outline" size={16} color="#fff" />
-                <Text style={styles.botonPDFTexto}>PDF</Text>
-              </>
-            )}
-          </TouchableOpacity>
-
-          {/* Botón cerrar sesión */}
-          <TouchableOpacity
-            style={styles.botonCerrar}
-            onPress={handleCerrarSesion}
-          >
-            <Ionicons name="log-out-outline" size={16} color="#fff" />
-            <Text style={styles.botonCerrarTexto}>CERRAR SESIÓN</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
+      <HeaderAdmin
+        hasNotifications={true}
+        onNotifPress={() => router.push("/administrador/notificaciones")}
+        onPdfPress={generarPDF}
+        onLogoutPress={handleCerrarSesion}
+        isPdfLoading={generandoPDF || cargando}
+      />
 
       {cargando ? (
         <ActivityIndicator color="#7c3aed" style={{ marginTop: 40 }} />
@@ -487,47 +464,6 @@ export default function AdminInicioScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#f3f4f6" },
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    backgroundColor: "#fff",
-    borderBottomWidth: 1,
-    borderBottomColor: "#e5e7eb",
-  },
-  headerBotones: { flexDirection: "row", gap: 8, alignItems: "center" },
-  notifContainer: { position: "relative" },
-  notifDot: {
-    position: "absolute",
-    top: 0,
-    right: 0,
-    width: 8,
-    height: 8,
-    backgroundColor: "#ef4444",
-    borderRadius: 4,
-  },
-  botonPDF: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#7c3aed",
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    gap: 6,
-  },
-  botonPDFTexto: { color: "#fff", fontSize: 12, fontWeight: "700" },
-  botonCerrar: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#ef4444",
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    gap: 6,
-  },
-  botonCerrarTexto: { color: "#fff", fontSize: 12, fontWeight: "700" },
   botonDesactivado: { backgroundColor: "#9ca3af" },
   scroll: { padding: 20, gap: 16, paddingBottom: 40 },
   titulo: { fontSize: 28, fontWeight: "800", color: "#111827" },

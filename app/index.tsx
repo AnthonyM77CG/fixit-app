@@ -17,13 +17,13 @@ export default function InicioScreen() {
 
     switch (usuario.rol) {
       case "Administrador":
-        router.replace("/administrador/inicio");
+        router.replace("/administrador/tabs/inicio");
         break;
       case "Técnico":
-        router.replace("/tecnico/inicio");
+        router.replace("/tecnico/tabs/inicio");
         break;
       case "Empleado":
-        router.replace("/empleado/inicio");
+        router.replace("/empleado/tabs/inicio");
         break;
       default:
         router.replace("/auth/metodo-login");

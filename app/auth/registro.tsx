@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect } from "react";
+import React, { useRef, useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -10,142 +10,193 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
-  Dimensions,
+  Linking,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Picker } from "@react-native-picker/picker";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+
 import { Rol } from "../../src/models/rol.model";
 import { Area } from "../../src/models/area.model";
 import { rolService } from "../../src/services/rol.service";
 import { areaService } from "../../src/services/area.service";
 import { authService } from "../../src/services/auth.service";
 
-const { width } = Dimensions.get("window");
+interface RegisterForm {
+  nombre: string;
+  apellido: string;
+  correo: string;
+  contrasena: string;
+  celular: string;
+  roleId: number;
+  areaId: number;
+}
+
+const INITIAL_FORM: RegisterForm = {
+  nombre: "",
+  apellido: "",
+  correo: "",
+  contrasena: "",
+  celular: "",
+  roleId: 0,
+  areaId: 0,
+};
 
 export default function RegisterScreen() {
   const router = useRouter();
-  const cameraRef = useRef<any>(null);
+  const cameraRef = useRef<CameraView | null>(null);
+
   const [permission, requestPermission] = useCameraPermissions();
   const [cargando, setCargando] = useState(false);
+  const [cargandoCatalogos, setCargandoCatalogos] = useState(true);
+
   const [fotoTomada, setFotoTomada] = useState(false);
   const [imagenBase64, setImagenBase64] = useState("");
   const [roles, setRoles] = useState<Rol[]>([]);
   const [areas, setAreas] = useState<Area[]>([]);
-  const [focusedField, setFocusedField] = useState<string | null>(null);
-  const [verContraseña, setVerContraseña] = useState(false);
 
-  const [form, setForm] = useState({
-    nombre: "",
-    apellido: "",
-    correo: "",
-    contraseña: "",
-    celular: "",
-    roleId: 0,
-    areaId: 0,
-  });
+  const [focusedField, setFocusedField] = useState<string | null>(null);
+  const [verContrasena, setVerContrasena] = useState(false);
+  const [form, setForm] = useState<RegisterForm>(INITIAL_FORM);
 
   useEffect(() => {
     cargarCatalogos();
   }, []);
 
   const cargarCatalogos = async () => {
+    setCargandoCatalogos(true);
     try {
       const [rolesData, areasData] = await Promise.all([
         rolService.getRoles(),
         areaService.getAreas(),
       ]);
-      setRoles(rolesData);
+
+      const rolesPermitidos = rolesData.filter((r) => {
+        const nombreRol = r.nombre.toUpperCase();
+        return (
+          nombreRol.includes("EMPLEADO") ||
+          nombreRol.includes("TECNICO") ||
+          nombreRol.includes("TÉCNICO")
+        );
+      });
+
+      setRoles(rolesPermitidos);
       setAreas(areasData);
     } catch (e: any) {
       Alert.alert(
-        "Error del Servidor",
-        "No se pudieron cargar los catálogos de Roles y Áreas.",
+        "Error de Servidor",
+        "No se pudieron cargar los roles y áreas. Intenta recargar la pantalla.",
       );
+    } finally {
+      setCargandoCatalogos(false);
     }
   };
 
   const tomarFoto = async () => {
     if (!cameraRef.current) return;
     try {
+      setCargando(true);
       const foto = await cameraRef.current.takePictureAsync({
         base64: true,
         quality: 0.7,
       });
-      let base64 = foto.base64 ?? "";
-      if (base64.includes(",")) base64 = base64.split(",")[1];
-      setCargando(true);
 
-      let resultado;
-      try {
-        resultado = await authService.verificarCara({ imagen: base64 });
-      } catch (e: any) {
-        if (e.response?.status === 400) {
-          Alert.alert(
-            "⚠️ Sin rostro detectado",
-            "No se detectó ningún rostro. Centra tu cara e intenta de nuevo.",
-          );
-          return;
-        }
-        throw e;
+      if (!foto?.base64) {
+        throw new Error("No se pudo obtener el contenido en base64.");
       }
 
-      if (resultado.caraExistente) {
+      let base64Clean = foto.base64;
+      if (base64Clean.includes(",")) {
+        base64Clean = base64Clean.split(",")[1];
+      }
+
+      // Verificación facial previa en backend
+      const resultado = await authService.verificarCara({
+        imagen: base64Clean,
+      });
+
+      if (resultado?.caraExistente) {
         Alert.alert(
-          "⚠️ Cara ya registrada",
-          "Esta cara ya tiene una cuenta. Intenta iniciar sesión.",
+          "Cara Registrada",
+          "Este rostro ya está asociado a una cuenta existente.",
         );
         return;
       }
 
-      setImagenBase64(base64);
+      setImagenBase64(base64Clean);
       setFotoTomada(true);
     } catch (e: any) {
-      Alert.alert("Error", "Ocurrió un problema al procesar la imagen.");
+      if (e.response?.status === 400) {
+        Alert.alert(
+          "Sin rostro detectado",
+          "Por favor ubica tu cara dentro de la guía e intenta nuevamente.",
+        );
+      } else {
+        Alert.alert(
+          "Error de captura",
+          e.response?.data?.message ||
+            "Ocurrió un problema al procesar la imagen.",
+        );
+      }
     } finally {
       setCargando(false);
     }
   };
 
   const handleRegister = async () => {
+    const { nombre, apellido, correo, contrasena, celular, roleId, areaId } =
+      form;
+
     if (
-      !form.nombre ||
-      !form.apellido ||
-      !form.correo ||
-      !form.contraseña ||
-      !form.celular
+      !nombre.trim() ||
+      !apellido.trim() ||
+      !correo.trim() ||
+      !contrasena ||
+      !celular
     ) {
-      Alert.alert("Campos Vacíos", "Por favor, rellena todos los campos.");
+      Alert.alert("Campos incompletos", "Por favor completa todos los campos.");
       return;
     }
-    if (form.celular.length !== 9) {
-      Alert.alert("Validación", "El celular debe tener exactamente 9 dígitos.");
+
+    if (celular.length !== 9) {
+      Alert.alert(
+        "Validación",
+        "El número de celular debe contener exactamente 9 dígitos.",
+      );
       return;
     }
-    if (form.roleId === 0) {
+
+    if (roleId === 0) {
       Alert.alert("Validación", "Selecciona un rol funcional.");
       return;
     }
-    if (form.areaId === 0) {
+
+    if (areaId === 0) {
       Alert.alert("Validación", "Selecciona un área de trabajo.");
       return;
     }
+
     if (!imagenBase64) {
       Alert.alert(
         "Biometría Requerida",
-        "Debes registrar tu rostro para completar el registro.",
+        "Debes capturar y vincular tu rostro para continuar.",
       );
       return;
     }
 
     setCargando(true);
     try {
-      await authService.register({ ...form, imagen: imagenBase64 });
+      await authService.register({
+        ...form,
+        contraseña: contrasena,
+        imagen: imagenBase64,
+      });
+
       Alert.alert(
         "¡Registro Exitoso!",
-        "Tu cuenta ha sido creada correctamente.",
+        "Tu cuenta ha sido creada. Ya puedes iniciar sesión.",
         [
           {
             text: "Ir al Login",
@@ -156,63 +207,73 @@ export default function RegisterScreen() {
     } catch (e: any) {
       Alert.alert(
         "Error de Registro",
-        e.response?.data?.error || "Ocurrió un fallo en el servidor.",
+        e.response?.data?.error ||
+          e.response?.data?.message ||
+          "Error al conectar con el servidor.",
       );
     } finally {
       setCargando(false);
     }
   };
 
+  const handleGoBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace("/auth/metodo-login");
+    }
+  };
+
+  // --- Vista sin permisos de cámara ---
   if (!permission?.granted) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>
-          <TouchableOpacity
-            onPress={() =>
-              router.canGoBack()
-                ? router.back()
-                : router.replace("/auth/metodo-login")
-            }
-            style={styles.botonVolver}
-          >
+          <TouchableOpacity onPress={handleGoBack} style={styles.botonVolver}>
             <Ionicons name="arrow-back" size={20} color="#374151" />
             <Text style={styles.botonVolverTexto}>Volver</Text>
           </TouchableOpacity>
           <Text style={styles.headerTitulo}>Crear Cuenta</Text>
           <View style={{ width: 80 }} />
         </View>
+
         <View style={styles.permisoContenido}>
           <View style={styles.permisoCard}>
             <Ionicons name="camera-outline" size={48} color="#16a34a" />
             <Text style={styles.permisoTitulo}>Acceso a la Cámara</Text>
             <Text style={styles.permisoTexto}>
-              Para registrar tu perfil biométrico necesitamos acceso a tu cámara
-              frontal.
+              Requerimos acceso a tu cámara para validar tu identidad
+              biométrica.
             </Text>
-            <TouchableOpacity
-              style={styles.botonPermiso}
-              onPress={requestPermission}
-            >
-              <Text style={styles.botonPermisoTexto}>Conceder Permiso</Text>
-            </TouchableOpacity>
+
+            {permission?.canAskAgain === false ? (
+              <TouchableOpacity
+                style={styles.botonPermiso}
+                onPress={() => Linking.openSettings()}
+              >
+                <Text style={styles.botonPermisoTexto}>
+                  Abrir Configuración
+                </Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                style={styles.botonPermiso}
+                onPress={requestPermission}
+              >
+                <Text style={styles.botonPermisoTexto}>Conceder Permiso</Text>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
       </SafeAreaView>
     );
   }
 
+  // --- Formulario principal ---
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header fijo */}
       <View style={styles.header}>
-        <TouchableOpacity
-          onPress={() =>
-            router.canGoBack()
-              ? router.back()
-              : router.replace("/auth/metodo-login")
-          }
-          style={styles.botonVolver}
-        >
+        <TouchableOpacity onPress={handleGoBack} style={styles.botonVolver}>
           <Ionicons name="arrow-back" size={20} color="#374151" />
           <Text style={styles.botonVolverTexto}>Volver</Text>
         </TouchableOpacity>
@@ -229,22 +290,27 @@ export default function RegisterScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <Text style={styles.subtitulo}>
-            Registra tus datos y vincula tu rostro
+            Completa tus datos personales y registra tu rostro
           </Text>
 
-          {/* Verificación Biométrica */}
+          {/* Sección Biometría */}
           <View style={styles.card}>
-            <Text style={styles.labelSeccion}>Verificación Biométrica</Text>
+            <Text style={styles.labelSeccion}>1. Verificación Biométrica</Text>
+
             {!fotoTomada ? (
               <View style={styles.cameraWrapper}>
-                <CameraView
-                  ref={cameraRef}
-                  facing="front"
-                  style={styles.camara}
-                />
-                <View style={styles.overlayCamara} pointerEvents="none">
-                  <View style={styles.guiaRostroOval} />
+                {/* Contenedor exclusivo para la cámara y su overlay */}
+                <View style={styles.cameraContainer}>
+                  <CameraView
+                    ref={cameraRef}
+                    facing="front"
+                    style={styles.camara}
+                  />
+                  <View style={styles.overlayCamara} pointerEvents="none">
+                    <View style={styles.guiaRostroOval} />
+                  </View>
                 </View>
+
                 <TouchableOpacity
                   style={styles.botonFoto}
                   onPress={tomarFoto}
@@ -279,9 +345,9 @@ export default function RegisterScreen() {
             )}
           </View>
 
-          {/* Información Personal */}
+          {/* Sección Información Personal */}
           <View style={styles.card}>
-            <Text style={styles.labelSeccion}>Información Personal</Text>
+            <Text style={styles.labelSeccion}>2. Información Personal</Text>
 
             <TextInput
               style={[
@@ -291,7 +357,7 @@ export default function RegisterScreen() {
               placeholder="Nombre"
               placeholderTextColor="#9ca3af"
               value={form.nombre}
-              onChangeText={(v) => setForm({ ...form, nombre: v })}
+              onChangeText={(v) => setForm((prev) => ({ ...prev, nombre: v }))}
               autoCapitalize="words"
               onFocus={() => setFocusedField("nombre")}
               onBlur={() => setFocusedField(null)}
@@ -306,7 +372,9 @@ export default function RegisterScreen() {
               placeholder="Apellido"
               placeholderTextColor="#9ca3af"
               value={form.apellido}
-              onChangeText={(v) => setForm({ ...form, apellido: v })}
+              onChangeText={(v) =>
+                setForm((prev) => ({ ...prev, apellido: v }))
+              }
               autoCapitalize="words"
               onFocus={() => setFocusedField("apellido")}
               onBlur={() => setFocusedField(null)}
@@ -321,7 +389,7 @@ export default function RegisterScreen() {
               placeholder="Correo electrónico"
               placeholderTextColor="#9ca3af"
               value={form.correo}
-              onChangeText={(v) => setForm({ ...form, correo: v })}
+              onChangeText={(v) => setForm((prev) => ({ ...prev, correo: v }))}
               keyboardType="email-address"
               autoCapitalize="none"
               onFocus={() => setFocusedField("correo")}
@@ -329,30 +397,32 @@ export default function RegisterScreen() {
               editable={!cargando}
             />
 
-            {/* Contraseña con ojo */}
+            {/* Contraseña */}
             <View
               style={[
-                styles.inputContraseñaContainer,
-                focusedField === "contraseña" && styles.inputFocused,
+                styles.inputContrasenaContainer,
+                focusedField === "contrasena" && styles.inputFocused,
               ]}
             >
               <TextInput
-                style={styles.inputContraseñaField}
+                style={styles.inputContrasenaField}
                 placeholder="Contraseña"
                 placeholderTextColor="#9ca3af"
-                value={form.contraseña}
-                onChangeText={(v) => setForm({ ...form, contraseña: v })}
-                secureTextEntry={!verContraseña}
-                onFocus={() => setFocusedField("contraseña")}
+                value={form.contrasena}
+                onChangeText={(v) =>
+                  setForm((prev) => ({ ...prev, contrasena: v }))
+                }
+                secureTextEntry={false}
+                onFocus={() => setFocusedField("contrasena")}
                 onBlur={() => setFocusedField(null)}
                 editable={!cargando}
               />
               <TouchableOpacity
                 style={styles.ojoBton}
-                onPress={() => setVerContraseña(!verContraseña)}
+                onPress={() => setVerContrasena(!verContrasena)}
               >
                 <Ionicons
-                  name={verContraseña ? "eye-off-outline" : "eye-outline"}
+                  name={verContrasena ? "eye-off-outline" : "eye-outline"}
                   size={20}
                   color="#9ca3af"
                 />
@@ -368,7 +438,12 @@ export default function RegisterScreen() {
               placeholder="Celular (9 dígitos)"
               placeholderTextColor="#9ca3af"
               value={form.celular}
-              onChangeText={(v) => setForm({ ...form, celular: v })}
+              onChangeText={(v) =>
+                setForm((prev) => ({
+                  ...prev,
+                  celular: v.replace(/[^0-9]/g, ""),
+                }))
+              }
               keyboardType="phone-pad"
               maxLength={9}
               onFocus={() => setFocusedField("celular")}
@@ -377,56 +452,65 @@ export default function RegisterScreen() {
             />
           </View>
 
-          {/* Asignación Laboral */}
+          {/* Sección Asignación Laboral */}
           <View style={styles.card}>
-            <Text style={styles.labelSeccion}>Asignación Laboral</Text>
+            <Text style={styles.labelSeccion}>3. Asignación Laboral</Text>
 
-            <Text style={styles.pickerLabel}>Rol Funcional</Text>
-            <View style={styles.pickerContainer}>
-              <Picker
-                selectedValue={form.roleId}
-                onValueChange={(v) => {
-                  if (v !== 0) setForm({ ...form, roleId: v });
-                }}
-                style={styles.picker}
-                enabled={!cargando}
-              >
-                <Picker.Item
-                  label="— Seleccione un rol —"
-                  value={0}
-                  enabled={false}
-                  color="#9ca3af"
-                />
-                {roles.map((r) => (
-                  <Picker.Item key={r.id} label={r.nombre} value={r.id} />
-                ))}
-              </Picker>
-            </View>
+            {cargandoCatalogos ? (
+              <ActivityIndicator
+                color="#16a34a"
+                style={{ marginVertical: 12 }}
+              />
+            ) : (
+              <>
+                <Text style={styles.pickerLabel}>Rol Funcional</Text>
+                <View style={styles.pickerContainer}>
+                  <Picker
+                    selectedValue={form.roleId}
+                    onValueChange={(v) =>
+                      setForm((prev) => ({ ...prev, roleId: Number(v) }))
+                    }
+                    style={styles.picker}
+                    enabled={!cargando}
+                  >
+                    <Picker.Item
+                      label="— Seleccione un rol —"
+                      value={0}
+                      enabled={false}
+                      color="#9ca3af"
+                    />
+                    {roles.map((r) => (
+                      <Picker.Item key={r.id} label={r.nombre} value={r.id} />
+                    ))}
+                  </Picker>
+                </View>
 
-            <Text style={styles.pickerLabel}>Área de Trabajo</Text>
-            <View style={[styles.pickerContainer, { marginBottom: 0 }]}>
-              <Picker
-                selectedValue={form.areaId}
-                onValueChange={(v) => {
-                  if (v !== 0) setForm({ ...form, areaId: v });
-                }}
-                style={styles.picker}
-                enabled={!cargando}
-              >
-                <Picker.Item
-                  label="— Seleccione un área —"
-                  value={0}
-                  enabled={false}
-                  color="#9ca3af"
-                />
-                {areas.map((a) => (
-                  <Picker.Item key={a.id} label={a.nombre} value={a.id} />
-                ))}
-              </Picker>
-            </View>
+                <Text style={styles.pickerLabel}>Área de Trabajo</Text>
+                <View style={[styles.pickerContainer, { marginBottom: 0 }]}>
+                  <Picker
+                    selectedValue={form.areaId}
+                    onValueChange={(v) =>
+                      setForm((prev) => ({ ...prev, areaId: Number(v) }))
+                    }
+                    style={styles.picker}
+                    enabled={!cargando}
+                  >
+                    <Picker.Item
+                      label="— Seleccione un área —"
+                      value={0}
+                      enabled={false}
+                      color="#9ca3af"
+                    />
+                    {areas.map((a) => (
+                      <Picker.Item key={a.id} label={a.nombre} value={a.id} />
+                    ))}
+                  </Picker>
+                </View>
+              </>
+            )}
           </View>
 
-          {/* Botón registrar */}
+          {/* Botón de Envió */}
           <TouchableOpacity
             style={[styles.botonEnviar, cargando && styles.botonDesactivado]}
             onPress={handleRegister}
@@ -474,7 +558,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
     shadowRadius: 6,
-    elevation: 3,
+    elevation: 2,
   },
   labelSeccion: {
     fontSize: 13,
@@ -492,9 +576,8 @@ const styles = StyleSheet.create({
   camara: { height: 220 },
   overlayCamara: {
     ...StyleSheet.absoluteFillObject,
-    justifyContent: "center",
     alignItems: "center",
-    bottom: 40,
+    justifyContent: "center",
   },
   guiaRostroOval: {
     width: 120,
@@ -540,7 +623,7 @@ const styles = StyleSheet.create({
     borderColor: "#e5e7eb",
     color: "#111827",
   },
-  inputContraseñaContainer: {
+  inputContrasenaContainer: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#f9fafb",
@@ -549,7 +632,7 @@ const styles = StyleSheet.create({
     borderColor: "#e5e7eb",
     marginBottom: 12,
   },
-  inputContraseñaField: {
+  inputContrasenaField: {
     flex: 1,
     paddingHorizontal: 14,
     paddingVertical: 12,
@@ -624,4 +707,9 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   botonPermisoTexto: { color: "#fff", fontSize: 15, fontWeight: "700" },
+  cameraContainer: {
+    height: 220,
+    width: "100%",
+    position: "relative",
+  },
 });

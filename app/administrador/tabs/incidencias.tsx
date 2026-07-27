@@ -12,10 +12,12 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useFocusEffect } from "expo-router";
-import { useAuth } from "../../src/context/AuthContext";
-import { incidenciaService } from "../../src/services/incidencia.service";
-import { IncidenciaResponse } from "../../src/models/incidencia.model";
-import { crearWebSocket } from "../../src/services/websocket.service";
+import { useAuth } from "../../../src/context/AuthContext";
+import { incidenciaService } from "../../../src/services/incidencia.service";
+import { IncidenciaResponse } from "../../../src/models/incidencia.model";
+import { crearWebSocket } from "../../../src/services/websocket.service";
+import HeaderAdmin from "../../../src/components/headers/HeaderAdmin";
+import { useNotificaciones } from "../../../src/context/NotificacionContext";
 
 type Tab = "pendientes" | "enProceso" | "resueltas";
 
@@ -49,13 +51,17 @@ export default function AdminInicioScreen() {
   const [tab, setTab] = useState<Tab>("pendientes");
   const [incidencias, setIncidencias] = useState<IncidenciaResponse[]>([]);
   const [cargando, setCargando] = useState(true);
+  const { onDataUpdate } = useNotificaciones();
 
   useFocusEffect(
     useCallback(() => {
       cargarIncidencias(true);
 
-      const ws = crearWebSocket(() => cargarIncidencias(false));
-      return () => ws.close();
+      onDataUpdate.current = () => cargarIncidencias(false);
+
+      return () => {
+        onDataUpdate.current = null;
+      };
     }, []),
   );
 
@@ -96,21 +102,11 @@ export default function AdminInicioScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
-      <View style={styles.header}>
-        <TouchableOpacity>
-          <View style={styles.notifContainer}>
-            <Ionicons name="notifications-outline" size={24} color="#374151" />
-            <View style={styles.notifDot} />
-          </View>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.botonCerrar}
-          onPress={handleCerrarSesion}
-        >
-          <Ionicons name="log-out-outline" size={16} color="#fff" />
-          <Text style={styles.botonCerrarTexto}>CERRAR SESIÓN</Text>
-        </TouchableOpacity>
-      </View>
+      <HeaderAdmin
+        hasNotifications={true}
+        onNotifPress={() => router.push("/administrador/notificaciones")}
+        onLogoutPress={handleCerrarSesion}
+      />
 
       {/* Tabs */}
       <View style={styles.tabsContainer}>
